@@ -37,7 +37,9 @@ jobs:
           path: app/pinty-android.apk
 
   linux:
-    runs-on: ubuntu-latest
+    # Az ubuntu-latest új kiadásán az apt beragad (amd64v3 csomagtükör), ezért rögzített kiadás.
+    # A régebbi rendszeren épített program a régebbi Linuxokon is fut.
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     defaults:
       run:
