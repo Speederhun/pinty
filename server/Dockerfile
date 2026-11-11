@@ -1,6 +1,8 @@
 # --- build ---
 FROM golang:1.24-alpine AS build
 WORKDIR /src
+# Ha egy függőség újabb Go-t kérne, a go parancs letölti a megfelelő toolchaint.
+ENV GOTOOLCHAIN=auto
 COPY . .
 # go.sum hiányában az első buildnél feloldja a függőségeket; commitold a go.sum-ot a reprodukálhatósághoz.
 RUN go mod tidy && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/pinty-server .
