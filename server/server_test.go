@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -15,6 +16,7 @@ import (
 type testEnv struct {
 	t  *testing.T
 	ts *httptest.Server
+	st *store
 }
 
 func newTestEnv(t *testing.T, allowReg bool) *testEnv {
@@ -32,7 +34,7 @@ func newTestEnvCfg(t *testing.T, cfg config) *testEnv {
 	s.authLim = newLimiter(1000, time.Minute)
 	ts := httptest.NewServer(s.routes())
 	t.Cleanup(func() { ts.Close(); st.Close() })
-	return &testEnv{t: t, ts: ts}
+	return &testEnv{t: t, ts: ts, st: st}
 }
 
 func (e *testEnv) do(method, path, token string, body any) (int, map[string]any) {
@@ -188,13 +190,93 @@ func TestSetupToken(t *testing.T) {
 		t.Fatalf("kulcs nélkül: %d, várt 403", code)
 	}
 	bad := regBody("a@example.com", 1)
-	bad["setup_token"] = "rossz"
+	bad["invite_code"] = "rossz"
 	if code, _ := e.do("POST", "/api/v1/register", "", bad); code != 403 {
 		t.Fatalf("rossz kulccsal: %d, várt 403", code)
 	}
 	good := regBody("a@example.com", 1)
-	good["setup_token"] = "titkos-kulcs"
+	good["invite_code"] = "titkos-kulcs"
 	if code, out := e.do("POST", "/api/v1/register", "", good); code != 201 {
 		t.Fatalf("jó kulccsal: %d %v", code, out)
+	}
+}
+
+func TestInvites(t *testing.T) {
+	e := newTestEnvCfg(t, config{})
+	if code, _ := e.do("POST", "/api/v1/register", "", regBody("admin@example.com", 1)); code != 201 {
+		t.Fatalf("első felhasználó: %d", code)
+	}
+
+	display, hash, err := newInviteCode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.st.createInvite("b@example.com", hash, time.Now().Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	withCode := func(email, code string) map[string]any {
+		b := regBody(email, 2)
+		b["invite_code"] = code
+		return b
+	}
+
+	if code, _ := e.do("POST", "/api/v1/register", "", regBody("b@example.com", 2)); code != 403 {
+		t.Fatalf("kód nélkül: %d, várt 403", code)
+	}
+	if code, _ := e.do("POST", "/api/v1/register", "", withCode("b@example.com", "ROSSZ-KOD")); code != 403 {
+		t.Fatalf("rossz kóddal: %d, várt 403", code)
+	}
+	if code, _ := e.do("POST", "/api/v1/register", "", withCode("masik@example.com", display)); code != 403 {
+		t.Fatalf("más e-mailre: %d, várt 403", code)
+	}
+	// a kisbetű és a kötőjelek hiánya nem számít
+	typed := strings.ToLower(strings.ReplaceAll(display, "-", " "))
+	if code, out := e.do("POST", "/api/v1/register", "", withCode("B@Example.com", typed)); code != 201 {
+		t.Fatalf("jó kóddal: %d %v", code, out)
+	}
+	if code, _ := e.do("POST", "/api/v1/register", "", withCode("b@example.com", display)); code != 403 {
+		t.Fatalf("másodszor ugyanazzal a kóddal: %d, várt 403", code)
+	}
+	login(e, "b@example.com", 2)
+}
+
+func TestInviteExpiredAndRevoked(t *testing.T) {
+	e := newTestEnvCfg(t, config{})
+	e.do("POST", "/api/v1/register", "", regBody("admin@example.com", 1))
+
+	old, oldHash, _ := newInviteCode()
+	if err := e.st.createInvite("c@example.com", oldHash, time.Now().Add(-time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	b := regBody("c@example.com", 3)
+	b["invite_code"] = old
+	if code, _ := e.do("POST", "/api/v1/register", "", b); code != 403 {
+		t.Fatalf("lejárt meghívó: %d, várt 403", code)
+	}
+
+	revoked, revokedHash, _ := newInviteCode()
+	if err := e.st.createInvite("d@example.com", revokedHash, time.Now().Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := e.st.revokeInvites("d@example.com"); err != nil || n != 1 {
+		t.Fatalf("visszavonás: %d %v", n, err)
+	}
+	b = regBody("d@example.com", 4)
+	b["invite_code"] = revoked
+	if code, _ := e.do("POST", "/api/v1/register", "", b); code != 403 {
+		t.Fatalf("visszavont meghívó: %d, várt 403", code)
+	}
+}
+
+func TestInviteCodeFormat(t *testing.T) {
+	display, hash, err := newInviteCode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(display) != 39 || strings.Count(display, "-") != 7 {
+		t.Fatalf("váratlan formátum: %q", display)
+	}
+	if hashInvite(display) != hash || hashInvite(strings.ToLower(display)) != hash {
+		t.Fatal("a normalizált lenyomatnak egyeznie kell")
 	}
 }

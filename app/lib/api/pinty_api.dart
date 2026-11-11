@@ -54,7 +54,7 @@ abstract class RemoteApi {
     required String authHash,
     required KdfParams kdf,
     required String wrappedKey,
-    String setupToken = '',
+    String inviteCode = '',
   });
   Future<LoginResult> login(String email, String authHash);
   Future<SyncResult> sync(int since);
@@ -103,7 +103,7 @@ class PintyApi implements RemoteApi {
     required String authHash,
     required KdfParams kdf,
     required String wrappedKey,
-    String setupToken = '',
+    String inviteCode = '',
   }) async {
     final r = await _http.post(
       _u('register'),
@@ -113,7 +113,7 @@ class PintyApi implements RemoteApi {
         'auth_hash': authHash,
         'kdf': kdf.toJson(),
         'wrapped_key': wrappedKey,
-        if (setupToken.isNotEmpty) 'setup_token': setupToken,
+        if (inviteCode.isNotEmpty) 'invite_code': inviteCode,
       }),
     );
     _check(r);

@@ -5,7 +5,7 @@ import 'package:pinty/crypto/vault_crypto.dart';
 /// (revíziók, ütközés 409-cel, sírkő), a szinkron-logika teszteléséhez.
 class FakeServer {
   final _users = <String, _FakeUser>{};
-  String? requiredSetupToken;
+  String? requiredInviteCode;
 
   /// A szerverre feltöltött összes titkosított blob (annak ellenőrzésére, hogy nincs bennük nyílt szöveg).
   final blobs = <String>[];
@@ -46,9 +46,9 @@ class _FakeApi implements RemoteApi {
     required String authHash,
     required KdfParams kdf,
     required String wrappedKey,
-    String setupToken = '',
+    String inviteCode = '',
   }) async {
-    if (server.requiredSetupToken != null && setupToken != server.requiredSetupToken) {
+    if (server.requiredInviteCode != null && inviteCode != server.requiredInviteCode) {
       throw ApiException(403, 'hibás regisztrációs kulcs');
     }
     if (server._users.containsKey(email)) throw ApiException(409, 'már regisztrálva van');

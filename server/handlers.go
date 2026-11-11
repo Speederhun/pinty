@@ -192,7 +192,7 @@ type registerReq struct {
 	AuthHash   string    `json:"auth_hash"`
 	KDF        kdfParams `json:"kdf"`
 	WrappedKey string    `json:"wrapped_key"`
-	SetupToken string    `json:"setup_token"`
+	InviteCode string    `json:"invite_code"`
 }
 
 // tokenOK állandó idejű összehasonlítás (a hosszuk sem szivárog ki).
@@ -201,6 +201,10 @@ func tokenOK(given, want string) bool {
 	return subtle.ConstantTimeCompare(a[:], b[:]) == 1
 }
 
+// handleRegister a regisztráció szabályai:
+//   - nyílt regisztráció (PINTY_ALLOW_REGISTRATION=true): bárki, kód nélkül (nem ajánlott);
+//   - az első fiók: ha be van állítva a PINTY_SETUP_TOKEN, azzal;
+//   - minden további fiók: az adott e-mail címre kiállított, egyszer használható, lejáró meghívókóddal.
 func (s *server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	if !s.authLim.allow("reg:" + s.clientIP(r)) {
 		writeErr(w, http.StatusTooManyRequests, "túl sok próbálkozás")
@@ -208,10 +212,6 @@ func (s *server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	var req registerReq
 	if !decode(w, r, &req) {
-		return
-	}
-	if s.cfg.SetupToken != "" && !tokenOK(req.SetupToken, s.cfg.SetupToken) {
-		writeErr(w, http.StatusForbidden, "hibás regisztrációs kulcs")
 		return
 	}
 	req.Email = normEmail(req.Email)
@@ -225,31 +225,41 @@ func (s *server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 500, "szerverhiba")
 		return
 	}
-	// Alapból csak az első felhasználó regisztrálhat; több fiókhoz kell a PINTY_ALLOW_REGISTRATION=true.
-	if n > 0 && !s.cfg.AllowRegistration {
-		writeErr(w, http.StatusForbidden, "a regisztráció le van tiltva")
+
+	code := strings.TrimSpace(req.InviteCode)
+	open := s.cfg.AllowRegistration
+	first := n == 0 && (s.cfg.SetupToken == "" || tokenOK(code, s.cfg.SetupToken))
+	if !open && !first && code == "" {
+		writeErr(w, http.StatusForbidden, "meghívókód szükséges")
 		return
 	}
+
 	idb := make([]byte, 16)
 	_, _ = rand.Read(idb)
 	salt := make([]byte, 16)
 	_, _ = rand.Read(salt)
-	err = s.st.createUser(user{
+	u := user{
 		ID:         base64.RawURLEncoding.EncodeToString(idb),
 		Email:      req.Email,
 		KDF:        req.KDF,
 		AuthStored: hashAuth(req.AuthHash, salt),
 		WrappedKey: req.WrappedKey,
-	})
-	if errors.Is(err, errExists) {
+	}
+	if open || first {
+		err = s.st.createUser(u)
+	} else {
+		err = s.st.createUserWithInvite(u, hashInvite(code))
+	}
+	switch {
+	case errors.Is(err, errInvalidInvite):
+		writeErr(w, http.StatusForbidden, "érvénytelen, lejárt vagy már felhasznált meghívókód")
+	case errors.Is(err, errExists):
 		writeErr(w, http.StatusConflict, "ez az e-mail már regisztrálva van")
-		return
-	}
-	if err != nil {
+	case err != nil:
 		writeErr(w, 500, "szerverhiba")
-		return
+	default:
+		writeJSON(w, http.StatusCreated, map[string]string{"status": "created"})
 	}
-	writeJSON(w, http.StatusCreated, map[string]string{"status": "created"})
 }
 
 type loginReq struct {

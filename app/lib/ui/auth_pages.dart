@@ -110,7 +110,7 @@ class _WelcomePageState extends State<WelcomePage> {
         serverUrl: _server.text,
         email: _email.text,
         password: _pass.text,
-        setupToken: _token.text,
+        inviteCode: _token.text,
       );
     } else {
       s.connect(serverUrl: _server.text, email: _email.text, password: _pass.text);
@@ -168,8 +168,8 @@ class _WelcomePageState extends State<WelcomePage> {
           TextField(
             controller: _token,
             decoration: const InputDecoration(
-              labelText: 'Regisztrációs kulcs',
-              helperText: 'A szerveren beállított PINTY_SETUP_TOKEN (ha van).',
+              labelText: 'Meghívókód',
+              helperText: 'A rendszergazdától kapott, egyszer használható kód.',
             ),
           ),
           const SizedBox(height: 12),

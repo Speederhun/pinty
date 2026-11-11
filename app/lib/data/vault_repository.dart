@@ -91,7 +91,7 @@ class VaultRepository {
     required String serverUrl,
     required String email,
     required String password,
-    String setupToken = '',
+    String inviteCode = '',
   }) async {
     final url = _normUrl(serverUrl);
     final mail = _normEmail(email);
@@ -107,7 +107,7 @@ class VaultRepository {
       authHash: keys.authHash,
       kdf: kdf,
       wrappedKey: wrapped,
-      setupToken: setupToken.trim(),
+      inviteCode: inviteCode.trim(),
     );
 
     _state = LocalState(meta: LocalMeta(serverUrl: url, email: mail, kdf: kdf, wrappedKey: wrapped));

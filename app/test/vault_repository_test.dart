@@ -157,7 +157,7 @@ void main() {
   });
 
   test('regisztrációs kulcs nélkül nem lehet fiókot létrehozni', () async {
-    final server = FakeServer()..requiredSetupToken = 'kulcs';
+    final server = FakeServer()..requiredInviteCode = 'kulcs';
     final a = _device(server);
     await a.init();
     await expectLater(
@@ -168,7 +168,7 @@ void main() {
       serverUrl: 'https://vault.test',
       email: 'a@example.com',
       password: _pw,
-      setupToken: 'kulcs',
+      inviteCode: 'kulcs',
     );
     expect(a.hasAccount, isTrue);
   });

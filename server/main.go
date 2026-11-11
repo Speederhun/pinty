@@ -15,6 +15,10 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 {
+		os.Exit(runCLI(os.Args[1:]))
+	}
+
 	addr := env("PINTY_ADDR", ":8080")
 	dataDir := env("PINTY_DATA", "./data")
 	if err := os.MkdirAll(dataDir, 0o700); err != nil {

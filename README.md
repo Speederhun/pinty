@@ -78,9 +78,23 @@ A Docker-build több száz MB lemezt és némi memóriát igényel, kis szervere
 |---|---|
 | `PINTY_ADDR` | Figyelési cím (alap: `:8080`) |
 | `PINTY_DATA` | Adatkönyvtár (alap: `./data`) |
-| `PINTY_SETUP_TOKEN` | Regisztrációs kulcs; ha be van állítva, fiók csak vele hozható létre |
-| `PINTY_ALLOW_REGISTRATION` | `true`: az első után további fiókok is regisztrálhatnak |
+| `PINTY_SETUP_TOKEN` | Az ELSŐ fiók létrehozásához szükséges kulcs (opcionális) |
+| `PINTY_ALLOW_REGISTRATION` | `true`: bárki regisztrálhat meghívó nélkül (nem ajánlott) |
 | `PINTY_TRUST_PROXY` | `true`: a kliens címét az `X-Forwarded-For` fejlécből veszi (reverse proxy mögött) |
+
+### Új felhasználó meghívása
+
+Az első fiókot te hozod létre az appban. További felhasználók csak meghívókóddal regisztrálhatnak,
+amit a szerveren állítasz ki az adott e-mail címre (egyszer használható, alapból 7 napig érvényes):
+
+```bash
+sudo -u pinty env PINTY_DATA=/var/lib/pinty /opt/pinty/pinty-server invite valaki@example.com
+sudo -u pinty env PINTY_DATA=/var/lib/pinty /opt/pinty/pinty-server invites   # lista
+sudo -u pinty env PINTY_DATA=/var/lib/pinty /opt/pinty/pinty-server revoke valaki@example.com
+```
+
+A meghívott az app „Új fiók” fülén megadja az e-mailjét, a kapott kódot és a saját mesterjelszavát.
+Mindenkinek külön, teljesen elszigetelt széfje van.
 
 ## Állapot
 

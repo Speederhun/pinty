@@ -7,7 +7,7 @@ Az `auth_hash`, `salt`, `blob`, `wrapped_key` mezők base64 szövegek.
 |---|---|
 | `GET /healthz` | Életjel |
 | `GET /api/v1/prelogin?email=` | KDF-paraméterek a kulcsszármaztatáshoz |
-| `POST /api/v1/register` | `{email, auth_hash, kdf, wrapped_key, setup_token}`; a `setup_token` kötelező, ha a szerveren be van állítva a `PINTY_SETUP_TOKEN` |
+| `POST /api/v1/register` | `{email, auth_hash, kdf, wrapped_key, invite_code}`; az `invite_code` az adott e-mailre kiállított, egyszer használható, lejáró meghívókód. Kivétel az első fiók (ha nincs `PINTY_SETUP_TOKEN`, kód nélkül; ha van, azzal) |
 | `POST /api/v1/login` | `{email, auth_hash}` → `{token, expires_at, wrapped_key, kdf}` |
 | `POST /api/v1/logout` | Token érvénytelenítése |
 | `POST /api/v1/password` | `{auth_hash, new_auth_hash, new_kdf, new_wrapped_key}` |

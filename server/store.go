@@ -9,9 +9,10 @@ import (
 )
 
 var (
-	errExists   = errors.New("már létezik")
-	errNotFound = errors.New("nem található")
-	errConflict = errors.New("ütközés")
+	errInvalidInvite = errors.New("érvénytelen meghívó")
+	errExists        = errors.New("már létezik")
+	errNotFound      = errors.New("nem található")
+	errConflict      = errors.New("ütközés")
 )
 
 type kdfParams struct {
@@ -67,6 +68,13 @@ CREATE TABLE IF NOT EXISTS items (
 	PRIMARY KEY (user_id, id)
 );
 CREATE INDEX IF NOT EXISTS items_rev ON items (user_id, rev);
+CREATE TABLE IF NOT EXISTS invites (
+	code_hash TEXT PRIMARY KEY,
+	email TEXT NOT NULL,
+	expires_at INTEGER NOT NULL,
+	used_at INTEGER NOT NULL DEFAULT 0,
+	created_at INTEGER NOT NULL
+);
 `
 
 func openStore(path string) (*store, error) {
@@ -91,8 +99,12 @@ func (s *store) countUsers() (int, error) {
 	return n, err
 }
 
-func (s *store) createUser(u user) error {
-	_, err := s.db.Exec(`INSERT INTO users
+type execer interface {
+	Exec(query string, args ...any) (sql.Result, error)
+}
+
+func insertUser(x execer, u user) error {
+	_, err := x.Exec(`INSERT INTO users
 		(id, email, kdf_salt, kdf_memory, kdf_iter, kdf_par, auth_stored, wrapped_key, created_at)
 		VALUES (?,?,?,?,?,?,?,?,?)`,
 		u.ID, u.Email, u.KDF.Salt, u.KDF.MemoryKiB, u.KDF.Iterations, u.KDF.Parallelism,
@@ -101,6 +113,77 @@ func (s *store) createUser(u user) error {
 		return errExists
 	}
 	return err
+}
+
+func (s *store) createUser(u user) error { return insertUser(s.db, u) }
+
+// createUserWithInvite egy tranzakcióban ellenőrzi és felhasználja a meghívót, és létrehozza a fiókot:
+// a meghívó csak egyszer, csak a megadott e-mailhez és csak lejárat előtt használható.
+func (s *store) createUserWithInvite(u user, codeHash string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var email string
+	var exp, used int64
+	err = tx.QueryRow(`SELECT email, expires_at, used_at FROM invites WHERE code_hash=?`, codeHash).
+		Scan(&email, &exp, &used)
+	if errors.Is(err, sql.ErrNoRows) {
+		return errInvalidInvite
+	}
+	if err != nil {
+		return err
+	}
+	if used != 0 || exp < time.Now().Unix() || email != u.Email {
+		return errInvalidInvite
+	}
+	if err := insertUser(tx, u); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`UPDATE invites SET used_at=? WHERE code_hash=?`, time.Now().Unix(), codeHash); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+type invite struct {
+	Email     string
+	ExpiresAt int64
+	UsedAt    int64
+	CreatedAt int64
+}
+
+func (s *store) createInvite(email, codeHash string, exp time.Time) error {
+	_, err := s.db.Exec(`INSERT INTO invites (code_hash, email, expires_at, created_at) VALUES (?,?,?,?)`,
+		codeHash, email, exp.Unix(), time.Now().Unix())
+	return err
+}
+
+func (s *store) listInvites() ([]invite, error) {
+	rows, err := s.db.Query(`SELECT email, expires_at, used_at, created_at FROM invites ORDER BY created_at DESC LIMIT 100`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []invite
+	for rows.Next() {
+		var iv invite
+		if err := rows.Scan(&iv.Email, &iv.ExpiresAt, &iv.UsedAt, &iv.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, iv)
+	}
+	return out, rows.Err()
+}
+
+func (s *store) revokeInvites(email string) (int64, error) {
+	res, err := s.db.Exec(`DELETE FROM invites WHERE email=? AND used_at=0`, email)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
 
 func (s *store) userByEmail(email string) (*user, error) {

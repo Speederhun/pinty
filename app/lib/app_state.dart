@@ -103,13 +103,13 @@ class AppState extends ChangeNotifier {
     required String serverUrl,
     required String email,
     required String password,
-    required String setupToken,
+    required String inviteCode,
   }) async {
     final ok = await _guard(() => repo.register(
           serverUrl: serverUrl,
           email: email,
           password: password,
-          setupToken: setupToken,
+          inviteCode: inviteCode,
         ));
     if (ok) _enterUnlocked();
   }
