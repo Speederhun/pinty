@@ -1,0 +1,129 @@
+name: Kliens buildek
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - ".github/workflows/build-clients.yml"
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter create --platforms=android --project-name pinty --org hu.pinty .
+      - run: rm -f test/widget_test.dart
+      # A release buildből alapból hiányzik az internet-engedély, enélkül nem érné el a szervert.
+      - name: INTERNET engedély
+        run: sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <application#' android/app/src/main/AndroidManifest.xml
+      - run: flutter pub get
+      - run: flutter build apk --release
+      - run: cp build/app/outputs/flutter-apk/app-release.apk pinty-android.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pinty-android
+          path: app/pinty-android.apk
+
+  linux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter create --platforms=linux --project-name pinty .
+      - run: rm -f test/widget_test.dart
+      - run: flutter pub get
+      - run: flutter build linux --release
+      - run: tar czf pinty-linux-x64.tar.gz -C build/linux/x64/release/bundle .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pinty-linux
+          path: app/pinty-linux-x64.tar.gz
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter create --platforms=windows --project-name pinty .
+      - run: Remove-Item -Force -ErrorAction SilentlyContinue test/widget_test.dart
+        shell: pwsh
+      - run: flutter pub get
+      - run: flutter build windows --release
+      - run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath pinty-windows-x64.zip
+        shell: pwsh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pinty-windows
+          path: app/pinty-windows-x64.zip
+
+  macos:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter create --platforms=macos --project-name pinty .
+      - run: rm -f test/widget_test.dart
+      # A macOS sandbox alapból tiltja a kimenő hálózati kapcsolatot.
+      - name: Hálózati engedély
+        run: |
+          for f in macos/Runner/DebugProfile.entitlements macos/Runner/Release.entitlements; do
+            /usr/libexec/PlistBuddy -c "Add :com.apple.security.network.client bool true" "$f" || true
+          done
+      - run: flutter pub get
+      - run: flutter build macos --release
+      - run: |
+          APP=$(ls -d build/macos/Build/Products/Release/*.app | head -1)
+          ditto -c -k --keepParent "$APP" pinty-macos.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pinty-macos
+          path: app/pinty-macos.zip
+
+  publish:
+    needs: [android, linux, windows, macos]
+    if: ${{ !cancelled() && (needs.android.result == 'success' || needs.linux.result == 'success' || needs.windows.result == 'success' || needs.macos.result == 'success') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publish rolling release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la dist
+          gh release delete client-latest --cleanup-tag -y -R "${{ github.repository }}" || true
+          gh release create client-latest dist/* -R "${{ github.repository }}" \
+            --prerelease --target "${{ github.sha }}" \
+            --title "Kliens (legfrissebb)" \
+            --notes "Automatikusan épített kliensek. Commit: ${{ github.sha }}. Az alkalmazások nincsenek kereskedelmi tanúsítvánnyal aláírva, ezért az első indításkor az operációs rendszer figyelmeztethet."
