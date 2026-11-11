@@ -1,0 +1,32 @@
+# Pinty szerver + Caddy (automatikus HTTPS).
+# Használat:  cp .env.example .env  →  szerkeszd  →  docker compose up -d --build
+services:
+  pinty:
+    build: ../server
+    restart: unless-stopped
+    environment:
+      PINTY_TRUST_PROXY: "true"
+      PINTY_ALLOW_REGISTRATION: "${PINTY_ALLOW_REGISTRATION:-false}"
+    volumes:
+      - pinty-data:/data
+    expose:
+      - "8080"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [pinty]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PINTY_DOMAIN: "${PINTY_DOMAIN}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  pinty-data:
+  caddy-data:
+  caddy-config:

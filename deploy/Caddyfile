@@ -1,0 +1,4 @@
+{$PINTY_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy pinty:8080
+}

@@ -1,0 +1,17 @@
+# általános
+.DS_Store
+*.log
+.env
+
+# szerver
+server/data/
+server/pinty-server
+
+# flutter
+app/.dart_tool/
+app/build/
+app/.flutter-plugins*
+app/.packages
+app/pubspec.lock
+*.iml
+.idea/
