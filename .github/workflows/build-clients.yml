@@ -40,6 +40,8 @@ jobs:
     # Az ubuntu-latest új kiadásán az apt beragad (amd64v3 csomagtükör), ezért rögzített kiadás.
     # A régebbi rendszeren épített program a régebbi Linuxokon is fut.
     runs-on: ubuntu-24.04
+    # A GitHub Ubuntu-csomagtükrei időnként elérhetetlenek; ez ne akassza meg a többi platformot.
+    continue-on-error: true
     timeout-minutes: 40
     defaults:
       run:
