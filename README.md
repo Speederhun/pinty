@@ -39,6 +39,22 @@ docker compose -f docker-compose.nginx.yml up -d --build
 
 Az első felhasználó regisztrálhat; több fiókhoz ideiglenesen `PINTY_ALLOW_REGISTRATION=true`.
 
+### Docker nélkül (kis lemezű szerverre)
+
+A CI minden push után publikál egy kész binárist (`server-latest` release). Fordítás nélkül:
+
+```bash
+useradd --system --no-create-home --shell /usr/sbin/nologin pinty
+mkdir -p /opt/pinty
+curl -L -o /opt/pinty/pinty-server https://github.com/Speederhun/pinty/releases/download/server-latest/pinty-server-linux-amd64
+chmod 755 /opt/pinty/pinty-server
+cp deploy/systemd/pinty.service /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now pinty
+curl http://127.0.0.1:8081/healthz
+```
+
+Frissítés: töltsd le újra a binárist, majd `systemctl restart pinty`.
+
 > A `server/go.sum` még nincs a repóban. Egy gépen, ahol van Go, futtasd egyszer:
 > `cd server && go mod tidy && go test ./...`, majd commitold a `go.mod` és `go.sum` fájlokat.
 
