@@ -47,7 +47,7 @@ Ha az egyik oldalon töröltek, a másikon módosítottak, a módosított válto
 - Nem létező e-mailre is hasonló választ adunk a `prelogin`-ra, és a bejelentkezésnél is ugyanannyi munkát végzünk (felhasználó-felderítés és időzítés ellen).
 - Munkamenet-tokenek véletlenek, a szerver csak a lenyomatukat tárolja; 30 nap után lejárnak.
 - Jelszócsere után minden más munkamenet érvénytelen.
-- Alapból csak az első felhasználó regisztrálhat, és ha be van állítva a `PINTY_SETUP_TOKEN`, regisztrációhoz az is kell (állandó idejű összehasonlítás).
+- Alapból csak az első felhasználó regisztrálhat, (ha be van állítva a `PINTY_SETUP_TOKEN`, ahhoz az is kell); a további fiókokhoz az adott e-mailre kiállított, egyszer használható, lejáró meghívókód kell. A kódokból csak SHA-256 lenyomat kerül az adatbázisba (állandó idejű összehasonlítás).
 - Kérésméret és elemméret korlát; szigorú JSON-dekódolás.
 
 ## Amit a modell **nem** véd
