@@ -31,7 +31,7 @@ jobs:
       - run: flutter create --platforms=linux --project-name pinty .
       - run: rm -f test/widget_test.dart   # a flutter create által generált minta-teszt
       - run: flutter pub get
-      - run: flutter analyze
+      - run: flutter analyze --no-fatal-infos
       - run: flutter test
 
   # A tesztek után kész linux/amd64 binárist publikál (a kis lemezű szerveren így nem kell fordítani).

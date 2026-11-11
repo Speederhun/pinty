@@ -1,7 +1,7 @@
 name: pinty
 description: Pinty – saját, végponttól végpontig titkosított jelszókezelő.
 publish_to: none
-version: 0.1.0+1
+version: 0.2.0+2
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -10,11 +10,11 @@ dependencies:
   flutter:
     sdk: flutter
   cryptography: ^2.7.0
+  crypto: ^3.0.3
   http: ^1.2.0
   uuid: ^4.4.0
   shared_preferences: ^2.2.0
-  flutter_secure_storage: ^9.2.0
-  local_auth: ^2.3.0
+  path_provider: ^2.1.0
 
 dev_dependencies:
   flutter_test:

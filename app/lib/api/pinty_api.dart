@@ -46,8 +46,25 @@ class SyncResult {
   final List<RemoteItem> items;
 }
 
+/// A szerver-kapcsolat felülete (a tesztekben hamis szerverrel cserélhető).
+abstract class RemoteApi {
+  Future<KdfParams> prelogin(String email);
+  Future<void> register({
+    required String email,
+    required String authHash,
+    required KdfParams kdf,
+    required String wrappedKey,
+    String setupToken = '',
+  });
+  Future<LoginResult> login(String email, String authHash);
+  Future<SyncResult> sync(int since);
+  Future<int> putItem(String id, String blob, int baseRev);
+  Future<int> deleteItem(String id, int baseRev);
+  Future<void> logout();
+}
+
 /// A Pinty szinkron-szerver kliense. Csak titkosított adat és auth hash megy ki.
-class PintyApi {
+class PintyApi implements RemoteApi {
   PintyApi(this.baseUrl, {http.Client? client}) : _http = client ?? http.Client();
 
   final String baseUrl;
@@ -74,16 +91,19 @@ class PintyApi {
     return body;
   }
 
+  @override
   Future<KdfParams> prelogin(String email) async {
     final r = await _http.get(_u('prelogin', {'email': email}), headers: _headers);
     return KdfParams.fromJson(_check(r)['kdf'] as Map<String, dynamic>);
   }
 
+  @override
   Future<void> register({
     required String email,
     required String authHash,
     required KdfParams kdf,
     required String wrappedKey,
+    String setupToken = '',
   }) async {
     final r = await _http.post(
       _u('register'),
@@ -93,11 +113,13 @@ class PintyApi {
         'auth_hash': authHash,
         'kdf': kdf.toJson(),
         'wrapped_key': wrappedKey,
+        if (setupToken.isNotEmpty) 'setup_token': setupToken,
       }),
     );
     _check(r);
   }
 
+  @override
   Future<LoginResult> login(String email, String authHash) async {
     final r = await _http.post(
       _u('login'),
@@ -113,6 +135,7 @@ class PintyApi {
     );
   }
 
+  @override
   Future<SyncResult> sync(int since) async {
     final r = await _http.get(_u('sync', {'since': '$since'}), headers: _headers);
     final b = _check(r);
@@ -123,6 +146,7 @@ class PintyApi {
   }
 
   /// Visszaadja az elem új szerver-revízióját.
+  @override
   Future<int> putItem(String id, String blob, int baseRev) async {
     final r = await _http.put(
       _u('items/$id'),
@@ -132,11 +156,13 @@ class PintyApi {
     return _check(r)['rev'] as int;
   }
 
+  @override
   Future<int> deleteItem(String id, int baseRev) async {
     final r = await _http.delete(_u('items/$id', {'base_rev': '$baseRev'}), headers: _headers);
     return _check(r)['rev'] as int;
   }
 
+  @override
   Future<void> logout() async {
     await _http.post(_u('logout'), headers: _headers);
     token = null;

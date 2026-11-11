@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
@@ -74,6 +75,16 @@ class VaultCrypto {
       info: utf8.encode('pinty-auth-v1'),
     );
     return MasterKeys(enc, base64.encode(await auth.extractBytes()));
+  }
+
+  /// Ugyanaz, mint a [deriveMasterKeys], de külön izolátumban fut, így a lassú
+  /// Argon2id nem fagyasztja le a felületet.
+  static Future<MasterKeys> deriveMasterKeysAsync(String password, KdfParams kdf) async {
+    final result = await Isolate.run(() async {
+      final keys = await deriveMasterKeys(password, kdf);
+      return (await keys.encKey.extractBytes(), keys.authHash);
+    });
+    return MasterKeys(SecretKey(result.$1), result.$2);
   }
 
   /// Új, véletlen széfkulcs.

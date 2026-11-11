@@ -35,6 +35,8 @@ var (
 type config struct {
 	AllowRegistration bool
 	TrustProxy        bool
+	// SetupToken: ha meg van adva, regisztrációhoz kötelező (csak a tulajdonos ismeri).
+	SetupToken string
 }
 
 type server struct {
@@ -190,6 +192,13 @@ type registerReq struct {
 	AuthHash   string    `json:"auth_hash"`
 	KDF        kdfParams `json:"kdf"`
 	WrappedKey string    `json:"wrapped_key"`
+	SetupToken string    `json:"setup_token"`
+}
+
+// tokenOK állandó idejű összehasonlítás (a hosszuk sem szivárog ki).
+func tokenOK(given, want string) bool {
+	a, b := sha256.Sum256([]byte(given)), sha256.Sum256([]byte(want))
+	return subtle.ConstantTimeCompare(a[:], b[:]) == 1
 }
 
 func (s *server) handleRegister(w http.ResponseWriter, r *http.Request) {
@@ -199,6 +208,10 @@ func (s *server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	var req registerReq
 	if !decode(w, r, &req) {
+		return
+	}
+	if s.cfg.SetupToken != "" && !tokenOK(req.SetupToken, s.cfg.SetupToken) {
+		writeErr(w, http.StatusForbidden, "hibás regisztrációs kulcs")
 		return
 	}
 	req.Email = normEmail(req.Email)

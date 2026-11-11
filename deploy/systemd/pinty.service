@@ -10,6 +10,8 @@ Environment=PINTY_ADDR=127.0.0.1:8081
 Environment=PINTY_DATA=/var/lib/pinty
 Environment=PINTY_TRUST_PROXY=true
 Environment=PINTY_ALLOW_REGISTRATION=false
+# A regisztrációs kulcs ide kerül (PINTY_SETUP_TOKEN=...), lásd a README-t.
+EnvironmentFile=-/etc/pinty/pinty.env
 Restart=on-failure
 RestartSec=3
 

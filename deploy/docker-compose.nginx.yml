@@ -9,6 +9,7 @@ services:
     environment:
       PINTY_TRUST_PROXY: "true"
       PINTY_ALLOW_REGISTRATION: "${PINTY_ALLOW_REGISTRATION:-false}"
+      PINTY_SETUP_TOKEN: "${PINTY_SETUP_TOKEN:-}"
     volumes:
       - pinty-data:/data
     ports:

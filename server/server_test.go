@@ -19,11 +19,16 @@ type testEnv struct {
 
 func newTestEnv(t *testing.T, allowReg bool) *testEnv {
 	t.Helper()
+	return newTestEnvCfg(t, config{AllowRegistration: allowReg})
+}
+
+func newTestEnvCfg(t *testing.T, cfg config) *testEnv {
+	t.Helper()
 	st, err := openStore(filepath.Join(t.TempDir(), "t.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := newServer(st, bytes.Repeat([]byte{7}, 32), config{AllowRegistration: allowReg})
+	s := newServer(st, bytes.Repeat([]byte{7}, 32), cfg)
 	s.authLim = newLimiter(1000, time.Minute)
 	ts := httptest.NewServer(s.routes())
 	t.Cleanup(func() { ts.Close(); st.Close() })
@@ -175,3 +180,21 @@ func TestIsolationBetweenUsers(t *testing.T) {
 }
 
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
+
+func TestSetupToken(t *testing.T) {
+	e := newTestEnvCfg(t, config{SetupToken: "titkos-kulcs"})
+
+	if code, _ := e.do("POST", "/api/v1/register", "", regBody("a@example.com", 1)); code != 403 {
+		t.Fatalf("kulcs nélkül: %d, várt 403", code)
+	}
+	bad := regBody("a@example.com", 1)
+	bad["setup_token"] = "rossz"
+	if code, _ := e.do("POST", "/api/v1/register", "", bad); code != 403 {
+		t.Fatalf("rossz kulccsal: %d, várt 403", code)
+	}
+	good := regBody("a@example.com", 1)
+	good["setup_token"] = "titkos-kulcs"
+	if code, out := e.do("POST", "/api/v1/register", "", good); code != 201 {
+		t.Fatalf("jó kulccsal: %d %v", code, out)
+	}
+}

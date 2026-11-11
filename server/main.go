@@ -35,6 +35,7 @@ func main() {
 	s := newServer(st, secret, config{
 		AllowRegistration: strings.EqualFold(env("PINTY_ALLOW_REGISTRATION", "false"), "true"),
 		TrustProxy:        strings.EqualFold(env("PINTY_TRUST_PROXY", "false"), "true"),
+		SetupToken:        os.Getenv("PINTY_SETUP_TOKEN"),
 	})
 
 	srv := &http.Server{
