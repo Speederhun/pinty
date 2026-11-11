@@ -29,7 +29,13 @@ docker compose up -d --build
 ```
 
 Szükséges: egy (al)domain, ami a szerver IP-jére mutat (pl. `vault.sajatdomain.hu`).
-Ha a szerveren már fut másik reverse proxy, ne indítsd a Caddyt; add hozzá a `pinty:8080` célpontot a meglévő proxyhoz.
+Ha a szerveren már fut nginx (a 80/443 port foglalt), ne a Caddyt használd, hanem:
+
+```bash
+cd deploy
+docker compose -f docker-compose.nginx.yml up -d --build
+# majd az nginx beállítása: deploy/nginx/pinty.conf
+```
 
 Az első felhasználó regisztrálhat; több fiókhoz ideiglenesen `PINTY_ALLOW_REGISTRATION=true`.
 

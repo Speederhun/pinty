@@ -1,0 +1,18 @@
+# Pinty szerver egy már meglévő nginx mögé (a Caddy nélküli változat).
+# A szerver csak a helyi gépen figyel (127.0.0.1:8081), kívülről az nginx éri el.
+#
+# Használat:  docker compose -f docker-compose.nginx.yml up -d --build
+services:
+  pinty:
+    build: ../server
+    restart: unless-stopped
+    environment:
+      PINTY_TRUST_PROXY: "true"
+      PINTY_ALLOW_REGISTRATION: "${PINTY_ALLOW_REGISTRATION:-false}"
+    volumes:
+      - pinty-data:/data
+    ports:
+      - "127.0.0.1:8081:8080"
+
+volumes:
+  pinty-data:
