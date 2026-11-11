@@ -4,10 +4,13 @@ Saját, végponttól végpontig titkosított jelszókezelő **Windowsra, Linuxra
 szinkronizációval az eszközök között.
 
 - **Zero-knowledge**: a mesterjelszó és a titkosító kulcsok soha nem hagyják el az eszközt. A szerver csak titkosított blobokat lát.
-- **Saját szerver**: egy kis Go szolgáltatás (SQLite), Dockerrel, automatikus HTTPS-sel (Caddy).
+- **Saját szerver**: egy kis Go szolgáltatás (SQLite), ~10 MB-os binárisként vagy Dockerben.
 - **Egy kódbázis**: Flutter app, négy platformra.
 - **Témák**: világos, sötét, óceán, rózsa.
 - **Egyéb információ**: minden elemhez szabad szöveges mező.
+- **Jelszógenerátor**, **TOTP** (hitelesítő kódok), **vágólap-törlés**, **automatikus zárolás** (5 perc tétlenség után; Androidon háttérbe kerüléskor is).
+- **Offline működés**: a széf hálózat nélkül is feloldható és szerkeszthető, szinkron később.
+- **Ütközéskezelés**: ha két eszközön ugyanazt szerkesztették, a szerveren lévő változat marad, a másik "(ütköző példány)" néven külön elemként megmarad. Semmi nem vész el.
 
 ## Felépítés
 
@@ -15,59 +18,83 @@ szinkronizációval az eszközök között.
 |---|---|
 | `server/` | Szinkron-szerver (Go + SQLite) |
 | `app/` | Flutter kliens |
-| `deploy/` | Docker Compose + Caddy a szerver üzemeltetéséhez |
+| `deploy/` | Docker Compose, nginx és systemd beállítások |
 | `docs/` | Biztonsági modell, API |
 
 Részletek: [docs/SECURITY.md](docs/SECURITY.md), [docs/API.md](docs/API.md).
 
+## Letöltés
+
+A GitHub Actions minden változtatás után megépíti a programokat. A **Releases** oldalon találod:
+
+| Fájl | Platform |
+|---|---|
+| `pinty-windows-x64.zip` | Windows (kicsomagolás után `pinty.exe`) |
+| `pinty-macos.zip` | macOS (első indításkor: jobb klikk › Megnyitás) |
+| `pinty-linux-x64.tar.gz` | Linux |
+| `pinty-android.apk` | Android (idegen forrásból telepítés engedélyezése kell) |
+| `pinty-server-linux-amd64` | A szerver |
+
+Az alkalmazások nincsenek kereskedelmi tanúsítvánnyal aláírva, ezért az operációs rendszer az első indításkor figyelmeztethet.
+
 ## A szerver üzembe helyezése
 
-```bash
-cd deploy
-cp .env.example .env     # állítsd be a PINTY_DOMAIN-t
-docker compose up -d --build
-```
-
 Szükséges: egy (al)domain, ami a szerver IP-jére mutat (pl. `vault.sajatdomain.hu`).
-Ha a szerveren már fut nginx (a 80/443 port foglalt), ne a Caddyt használd, hanem:
 
-```bash
-cd deploy
-docker compose -f docker-compose.nginx.yml up -d --build
-# majd az nginx beállítása: deploy/nginx/pinty.conf
-```
-
-Az első felhasználó regisztrálhat; több fiókhoz ideiglenesen `PINTY_ALLOW_REGISTRATION=true`.
-
-### Docker nélkül (kis lemezű szerverre)
-
-A CI minden push után publikál egy kész binárist (`server-latest` release). Fordítás nélkül:
+### Kész binárissal (ajánlott, kevés lemez/memória esetén is)
 
 ```bash
 useradd --system --no-create-home --shell /usr/sbin/nologin pinty
-mkdir -p /opt/pinty
+mkdir -p /opt/pinty /etc/pinty
 curl -L -o /opt/pinty/pinty-server https://github.com/Speederhun/pinty/releases/download/server-latest/pinty-server-linux-amd64
 chmod 755 /opt/pinty/pinty-server
+
+# regisztrációs kulcs: ezt kell megadni az appban az első fiók létrehozásakor
+echo "PINTY_SETUP_TOKEN=$(openssl rand -hex 16)" > /etc/pinty/pinty.env
+chmod 600 /etc/pinty/pinty.env && cat /etc/pinty/pinty.env
+
 cp deploy/systemd/pinty.service /etc/systemd/system/
 systemctl daemon-reload && systemctl enable --now pinty
 curl http://127.0.0.1:8081/healthz
 ```
 
-Frissítés: töltsd le újra a binárist, majd `systemctl restart pinty`.
+Ezután egy reverse proxy (nginx: `deploy/nginx/pinty.conf`, majd `certbot --nginx -d vault.sajatdomain.hu`)
+teszi elérhetővé HTTPS-en. Frissítés: töltsd le újra a binárist, majd `systemctl restart pinty`.
 
-> A `server/go.sum` még nincs a repóban. Egy gépen, ahol van Go, futtasd egyszer:
-> `cd server && go mod tidy && go test ./...`, majd commitold a `go.mod` és `go.sum` fájlokat.
+### Dockerrel
+
+```bash
+cd deploy
+cp .env.example .env      # PINTY_DOMAIN és PINTY_SETUP_TOKEN beállítása
+docker compose up -d --build                              # saját Caddy-vel (automatikus HTTPS)
+docker compose -f docker-compose.nginx.yml up -d --build  # ha már van nginx a gépen
+```
+
+A Docker-build több száz MB lemezt és némi memóriát igényel, kis szerveren inkább a kész binárist használd.
+
+### Beállítások (környezeti változók)
+
+| Változó | Jelentés |
+|---|---|
+| `PINTY_ADDR` | Figyelési cím (alap: `:8080`) |
+| `PINTY_DATA` | Adatkönyvtár (alap: `./data`) |
+| `PINTY_SETUP_TOKEN` | Regisztrációs kulcs; ha be van állítva, fiók csak vele hozható létre |
+| `PINTY_ALLOW_REGISTRATION` | `true`: az első után további fiókok is regisztrálhatnak |
+| `PINTY_TRUST_PROXY` | `true`: a kliens címét az `X-Forwarded-For` fejlécből veszi (reverse proxy mögött) |
 
 ## Állapot
 
-Korai fázis. A szerver és a titkosító mag megvan, a kliens alap felülete működik memóriában.
-**Ne tárolj még valódi jelszavakat**, amíg a titkosított helyi tárolás és a biztonsági átvizsgálás nem készült el.
+Működő első verzió. **A kriptó- és szinkronréteg még nem esett át külső biztonsági átvizsgáláson**, ezért
+fontos jelszavaidat csak saját felelősségre és biztonsági mentéssel tárold benne.
+
+Még nincs: mesterjelszó-csere az appból (a szerver tudja), jelszótörténet, mappák/címkék és kedvencek a felületen,
+import/export, biometrikus feloldás, autofill, böngészőbővítmény.
 
 ## Útiterv
 
 1. [x] Szerver, titkosító mag, témák, alap felület
-2. [ ] Titkosított helyi tárolás, regisztráció/bejelentkezés képernyő
-3. [ ] Szinkron (ütközéskezeléssel), jelszógenerátor
-4. [ ] TOTP kódok, import/export (Bitwarden, KeePass, CSV)
-5. [ ] Android: biometrikus feloldás, autofill
+2. [x] Titkosított helyi tárolás, regisztráció/bejelentkezés, regisztrációs kulcs
+3. [x] Szinkron ütközéskezeléssel, jelszógenerátor, TOTP
+4. [ ] Mappák, címkék, kedvencek; import/export (Bitwarden, KeePass, CSV)
+5. [ ] Mesterjelszó-csere, biometrikus feloldás, Android autofill
 6. [ ] Böngészőbővítmény
