@@ -182,8 +182,9 @@ class AppState extends ChangeNotifier {
   Future<void> init() async {
     languageRequest = setLanguage;
     final prefs = await SharedPreferences.getInstance();
-    lang = prefs.getString('lang') == 'hu' ? 'hu' : 'en';
-    setLang(lang);
+    final savedLang = prefs.getString('lang');
+    if (savedLang != null) setLang(savedLang);
+    lang = currentLang;
     final name = prefs.getString('theme');
     theme = PintyThemeId.values.firstWhere(
       (t) => t.name == name,
