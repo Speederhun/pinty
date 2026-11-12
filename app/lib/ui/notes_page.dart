@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_state.dart';
+import '../data/notes_export.dart';
 import '../models/vault_item.dart';
 import '../theme/pinty_theme.dart';
 import '../util/note_logic.dart';
@@ -138,6 +140,43 @@ class _NotesPageState extends State<NotesPage> {
     if (mounted) _toast(context, '$ok jegyzet importálva${skipped > 0 ? ', $skipped kihagyva (túl nagy)' : ''}.');
   }
 
+  Future<void> _quickOpen() async {
+    final picked = await showDialog<Object>(
+      context: context,
+      builder: (_) => _QuickSwitcher(state: state),
+    );
+    if (!mounted || picked == null) return;
+    if (picked is VaultItem) {
+      _open(picked.id);
+    } else if (picked is String) {
+      await _create(title: picked, folder: '');
+    }
+  }
+
+  Future<void> _exportNotes() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Jegyzetek exportálása'),
+        content: const Text(
+            'A zip titkosítatlan: minden jegyzet külön .md fájl, a képek az attachments mappában. '
+            'Mentsd biztonságos helyre, és használat után töröld.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Mégse')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Exportálás')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final idx = state.noteIndex;
+    final bytes = exportNotesZip(idx.notes, idx.files);
+    final name = 'pinty-jegyzetek-${dateTitle(DateTime.now())}.zip';
+    final path = await FilePicker.platform.saveFile(dialogTitle: 'Mentés', fileName: name, bytes: bytes);
+    if (path == null) return;
+    if (!Platform.isAndroid && !Platform.isIOS) await File(path).writeAsBytes(bytes);
+    if (mounted) _toast(context, '${idx.notes.length} jegyzet exportálva.');
+  }
+
   Future<void> _folders() async {
     final picked = await showFolderManager(context, state, 'note');
     if (picked != null && mounted) setState(() => _folder = picked.isEmpty ? null : picked);
@@ -151,6 +190,16 @@ class _NotesPageState extends State<NotesPage> {
 
   @override
   Widget build(BuildContext context) {
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyO, control: true): _quickOpen,
+        const SingleActivator(LogicalKeyboardKey.keyO, meta: true): _quickOpen,
+      },
+      child: _buildPage(context),
+    );
+  }
+
+  Widget _buildPage(BuildContext context) {
     final p = pintyPalettes[state.theme]!;
     return LayoutBuilder(builder: (context, c) {
       final wide = c.maxWidth >= 900;
@@ -168,6 +217,8 @@ class _NotesPageState extends State<NotesPage> {
         onDaily: _daily,
         onTemplate: _fromTemplate,
         onImport: _import,
+        onExport: _exportNotes,
+        onQuickOpen: _quickOpen,
         onGraph: _graph,
         onFolders: _folders,
         wide: wide,
@@ -178,7 +229,9 @@ class _NotesPageState extends State<NotesPage> {
             title: const Text('Jegyzetek'),
             backgroundColor: p.bg,
             actions: [
+              IconButton(tooltip: 'Gyorskereső', onPressed: _quickOpen, icon: const Icon(Icons.manage_search)),
               IconButton(tooltip: 'Gráf', onPressed: _graph, icon: const Icon(Icons.hub_outlined)),
+              IconButton(tooltip: 'Exportálás', onPressed: _exportNotes, icon: const Icon(Icons.ios_share)),
               IconButton(tooltip: 'Napi jegyzet', onPressed: _daily, icon: const Icon(Icons.today_outlined)),
               IconButton(tooltip: 'Szinkronizálás', onPressed: state.sync, icon: const Icon(Icons.sync)),
               ThemeMenu(state: state),
@@ -225,6 +278,111 @@ class _NotesPageState extends State<NotesPage> {
   }
 }
 
+/// Gyorskereső: gépelésre szűr, nyilakkal és Entert-tel nyit; ha nincs találat, létrehozást ajánl.
+class _QuickSwitcher extends StatefulWidget {
+  const _QuickSwitcher({required this.state});
+  final AppState state;
+
+  @override
+  State<_QuickSwitcher> createState() => _QuickSwitcherState();
+}
+
+class _QuickSwitcherState extends State<_QuickSwitcher> {
+  final _q = TextEditingController();
+  int _sel = 0;
+
+  @override
+  void dispose() {
+    _q.dispose();
+    super.dispose();
+  }
+
+  List<VaultItem> _results() {
+    final idx = widget.state.noteIndex;
+    final q = _q.text.trim().toLowerCase();
+    final all = idx.notes.toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    if (q.isEmpty) return all.take(12).toList();
+    final starts = <VaultItem>[], contains = <VaultItem>[];
+    for (final n in all) {
+      final name = n.name.toLowerCase();
+      if (name.startsWith(q)) {
+        starts.add(n);
+      } else if (name.contains(q) || n.folder.toLowerCase().contains(q)) {
+        contains.add(n);
+      }
+    }
+    return [...starts, ...contains].take(12).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final results = _results();
+    final title = _q.text.trim();
+    final canCreate = title.isNotEmpty && widget.state.noteIndex.resolve(title) == null;
+    final count = results.length + (canCreate ? 1 : 0);
+    if (_sel >= count) _sel = count == 0 ? 0 : count - 1;
+
+    void choose(int i) {
+      if (i < results.length) {
+        Navigator.pop(context, results[i]);
+      } else if (canCreate) {
+        Navigator.pop(context, title);
+      }
+    }
+
+    return Dialog(
+      alignment: Alignment.topCenter,
+      insetPadding: const EdgeInsets.only(top: 80, left: 16, right: 16),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 480),
+        child: CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.arrowDown): () => setState(() => _sel = count == 0 ? 0 : (_sel + 1) % count),
+            const SingleActivator(LogicalKeyboardKey.arrowUp): () => setState(() => _sel = count == 0 ? 0 : (_sel - 1 + count) % count),
+          },
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: TextField(
+                controller: _q,
+                autofocus: true,
+                onChanged: (_) => setState(() => _sel = 0),
+                onSubmitted: (_) => choose(_sel),
+                decoration: const InputDecoration(
+                  hintText: 'Jegyzet megnyitása… (Enter: megnyit, ↑↓: választ)',
+                  prefixIcon: Icon(Icons.manage_search),
+                ),
+              ),
+            ),
+            Flexible(
+              child: ListView(shrinkWrap: true, children: [
+                for (var i = 0; i < results.length; i++)
+                  ListTile(
+                    dense: true,
+                    selected: i == _sel,
+                    leading: const Icon(Icons.description_outlined, size: 18),
+                    title: Text(results[i].name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    subtitle: results[i].folder.isEmpty ? null : Text(results[i].folder),
+                    onTap: () => choose(i),
+                  ),
+                if (canCreate)
+                  ListTile(
+                    dense: true,
+                    selected: _sel == results.length,
+                    leading: const Icon(Icons.add, size: 18),
+                    title: Text('Új jegyzet: „$title”'),
+                    onTap: () => choose(results.length),
+                  ),
+                if (count == 0) const Padding(padding: EdgeInsets.all(16), child: Text('Még nincs jegyzet.')),
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
 class _NoteList extends StatelessWidget {
   const _NoteList({
     required this.state,
@@ -240,6 +398,8 @@ class _NoteList extends StatelessWidget {
     required this.onDaily,
     required this.onTemplate,
     required this.onImport,
+    required this.onExport,
+    required this.onQuickOpen,
     required this.onGraph,
     required this.onFolders,
     required this.wide,
@@ -249,7 +409,7 @@ class _NoteList extends StatelessWidget {
   final List<VaultItem> notes;
   final TextEditingController search;
   final String? folder, tag;
-  final VoidCallback onSearch, onNew, onDaily, onTemplate, onImport, onGraph, onFolders;
+  final VoidCallback onSearch, onNew, onDaily, onTemplate, onImport, onExport, onQuickOpen, onGraph, onFolders;
   final void Function(String?) onFolder, onTag;
   final void Function(String) onOpen;
   final bool wide;
@@ -267,6 +427,7 @@ class _NoteList extends StatelessWidget {
             Expanded(
               child: FilledButton.icon(onPressed: onNew, icon: const Icon(Icons.add), label: const Text('Új jegyzet')),
             ),
+            IconButton(tooltip: 'Gyorskereső (Ctrl+O)', onPressed: onQuickOpen, icon: const Icon(Icons.manage_search)),
             IconButton(tooltip: 'Napi jegyzet', onPressed: onDaily, icon: const Icon(Icons.today_outlined)),
             PopupMenuButton<String>(
               tooltip: 'Továbbiak',
@@ -278,12 +439,15 @@ class _NoteList extends StatelessWidget {
                     onTemplate();
                   case 'import':
                     onImport();
+                  case 'export':
+                    onExport();
                 }
               },
               itemBuilder: (_) => const [
                 PopupMenuItem(value: 'graph', child: Text('Gráf nézet')),
                 PopupMenuItem(value: 'template', child: Text('Új jegyzet sablonból')),
                 PopupMenuItem(value: 'import', child: Text('Markdown importálása…')),
+                PopupMenuItem(value: 'export', child: Text('Jegyzetek exportálása (zip)…')),
               ],
             ),
           ]),
