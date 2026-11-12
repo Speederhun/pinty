@@ -4,7 +4,12 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_highlight/flutter_highlight.dart';
+import 'package:flutter_highlight/themes/atom-one-dark.dart';
+import 'package:flutter_highlight/themes/atom-one-light.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:highlight/highlight.dart' as hl;
+import 'package:markdown/markdown.dart' as md;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_state.dart';
@@ -392,6 +397,73 @@ class _NoteList extends StatelessWidget {
       body.replaceAll(RegExp(r'[#>*_`\[\]-]+'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
 }
 
+const _langAlias = {
+  'sh': 'bash',
+  'shell': 'bash',
+  'zsh': 'bash',
+  'js': 'javascript',
+  'ts': 'typescript',
+  'py': 'python',
+  'yml': 'yaml',
+  'ps1': 'powershell',
+  'golang': 'go',
+  'c++': 'cpp',
+  'html': 'xml',
+};
+
+/// Kódblokk ```nyelv jelöléssel: nyelv felirat, szintaxis-színezés és másolás gomb.
+class _CodeBlockBuilder extends MarkdownElementBuilder {
+  @override
+  Widget? visitElementAfterWithContext(BuildContext context, md.Element element, TextStyle? preferredStyle, TextStyle? parentStyle) {
+    final text = element.textContent;
+    final cls = element.attributes['class'] ?? '';
+    final isBlock = cls.startsWith('language-') || text.endsWith('\n');
+    if (!isBlock) return null; // soron belüli `kód`
+    var lang = cls.startsWith('language-') ? cls.substring(9).toLowerCase() : '';
+    lang = _langAlias[lang] ?? lang;
+    final code = text.endsWith('\n') ? text.substring(0, text.length - 1) : text;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final base = dark ? atomOneDarkTheme : atomOneLightTheme;
+    final theme = {...base, 'root': TextStyle(color: base['root']?.color, backgroundColor: Colors.transparent)};
+    const mono = TextStyle(fontFamily: 'monospace', fontSize: 13, height: 1.4);
+    final highlighted = lang.isNotEmpty && hl.allLanguages.containsKey(lang);
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: dark ? const Color(0xFF1B1F23) : const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 12, right: 4),
+          child: Row(children: [
+            Expanded(
+              child: Text(lang.isEmpty ? 'kód' : lang, style: TextStyle(fontSize: 11, color: dark ? Colors.white60 : Colors.black54)),
+            ),
+            IconButton(
+              tooltip: 'Másolás',
+              visualDensity: VisualDensity.compact,
+              iconSize: 16,
+              icon: const Icon(Icons.copy_all_outlined),
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: code));
+                if (context.mounted) _toast(context, 'Kód a vágólapra másolva.');
+              },
+            ),
+          ]),
+        ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          child: highlighted
+              ? HighlightView(code, language: lang, theme: theme, padding: EdgeInsets.zero, textStyle: mono)
+              : SelectableText(code, style: mono),
+        ),
+      ]),
+    );
+  }
+}
+
 enum _Mode { edit, split, preview }
 
 /// A szerkesztő: markdown, élő előnézet, [[ ]] automatikus kiegészítés, kép beillesztés,
@@ -572,6 +644,58 @@ class _NoteEditorState extends State<NoteEditor> {
     _bodyFocus.requestFocus();
   }
 
+  Future<void> _codeBlock() async {
+    final lang = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Kódblokk nyelve'),
+        children: [
+          for (final l in const ['', 'bash', 'python', 'javascript', 'json', 'go', 'sql', 'yaml', 'html', 'css', 'powershell'])
+            SimpleDialogOption(onPressed: () => Navigator.pop(ctx, l), child: Text(l.isEmpty ? 'Nincs (egyszerű)' : l)),
+        ],
+      ),
+    );
+    if (lang == null) return;
+    final sel = _body.selection;
+    final t = _body.text;
+    final s = sel.isValid ? sel.start : t.length;
+    final e = sel.isValid ? sel.end : t.length;
+    final chosen = t.substring(s, e);
+    final pre = (s == 0 || t[s - 1] == '\n') ? '' : '\n';
+    final head = '$pre```$lang\n';
+    _body.value = TextEditingValue(
+      text: t.replaceRange(s, e, '$head$chosen\n```\n'),
+      selection: TextSelection.collapsed(offset: s + head.length + chosen.length),
+    );
+    _touch();
+    _bodyFocus.requestFocus();
+  }
+
+  Future<void> _newFolder() async {
+    final c = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Új mappa'),
+        content: TextField(
+          controller: c,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'pl. Munka/2026'),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Mégse')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, c.text), child: const Text('Létrehozás')),
+        ],
+      ),
+    );
+    if (name == null || name.trim().isEmpty) return;
+    final path = AppState.cleanPath(name);
+    await state.createFolder('note', path);
+    _folder.text = path;
+    _touch();
+  }
+
   Future<void> _insertImage() async {
     final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
     final f = res?.files.firstOrNull;
@@ -648,6 +772,7 @@ class _NoteEditorState extends State<NoteEditor> {
       data: md.isEmpty ? '*Üres jegyzet*' : md,
       selectable: true,
       padding: const EdgeInsets.all(20),
+      builders: {'code': _CodeBlockBuilder()},
       onTapLink: (text, href, title) {
         if (href != null) unawaited(_onLink(href));
       },
@@ -670,7 +795,8 @@ class _NoteEditorState extends State<NoteEditor> {
       styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
         a: TextStyle(color: p.accent, fontWeight: FontWeight.w600),
         code: TextStyle(fontFamily: 'monospace', backgroundColor: p.chip, color: p.chipText),
-        codeblockDecoration: BoxDecoration(color: p.chip, borderRadius: BorderRadius.circular(8)),
+        codeblockPadding: EdgeInsets.zero,
+        codeblockDecoration: const BoxDecoration(),
         blockquoteDecoration: BoxDecoration(
           border: Border(left: BorderSide(color: p.accent, width: 3)),
         ),
@@ -822,6 +948,12 @@ class _NoteEditorState extends State<NoteEditor> {
             }
           },
         ),
+        IconButton(
+          tooltip: 'Új mappa',
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.create_new_folder_outlined, size: 18),
+          onPressed: _newFolder,
+        ),
         const Spacer(),
         Flexible(child: Text(_status, style: TextStyle(color: p.muted, fontSize: 12), overflow: TextOverflow.ellipsis)),
       ]),
@@ -836,7 +968,8 @@ class _NoteEditorState extends State<NoteEditor> {
               _Tool(Icons.title, 'Fejléc', () => _linePrefix('## ')),
               _Tool(Icons.format_bold, 'Félkövér', () => _wrap('**')),
               _Tool(Icons.format_italic, 'Dőlt', () => _wrap('*')),
-              _Tool(Icons.code, 'Kód', () => _wrap('`')),
+              _Tool(Icons.code, 'Soron belüli kód', () => _wrap('`')),
+              _Tool(Icons.terminal, 'Kódblokk (nyelvvel)', _codeBlock),
               _Tool(Icons.format_list_bulleted, 'Lista', () => _linePrefix('- ')),
               _Tool(Icons.check_box_outlined, 'Teendő', () => _linePrefix('- [ ] ')),
               _Tool(Icons.format_quote, 'Idézet', () => _linePrefix('> ')),
