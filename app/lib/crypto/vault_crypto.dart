@@ -4,6 +4,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
+import '../i18n.dart';
 
 /// Argon2id paraméterek. A szerver tárolja őket a felhasználónál, így később emelhetők.
 class KdfParams {
@@ -151,7 +152,7 @@ class VaultCrypto {
   }) async {
     final data = base64.decode(blob);
     if (data.length < 1 + _nonceLen + _macLen || data[0] != _version) {
-      throw const FormatException('ismeretlen vagy sérült blob');
+      throw FormatException(tr('ismeretlen vagy sérült blob'));
     }
     final nonce = data.sublist(1, 1 + _nonceLen);
     final mac = Mac(data.sublist(data.length - _macLen));

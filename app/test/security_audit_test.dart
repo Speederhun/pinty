@@ -1,10 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pinty/i18n.dart';
 import 'package:pinty/models/vault_item.dart';
 import 'package:pinty/util/security_audit.dart';
 
 VaultItem login(String id, String pw, {DateTime? at}) => VaultItem(id: id, name: id, password: pw, updatedAt: at);
 
 void main() {
+  setLang('hu');
   test('jelszó-erősség', () {
     expect(strengthOf('password'), Strength.veryWeak);
     expect(strengthOf('123456'), Strength.veryWeak);

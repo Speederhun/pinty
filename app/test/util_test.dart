@@ -1,10 +1,12 @@
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pinty/i18n.dart';
 import 'package:pinty/util/password_generator.dart';
 import 'package:pinty/util/totp.dart';
 
 void main() {
+  setLang('hu');
   group('TOTP (RFC 6238 tesztvektorok, SHA1)', () {
     const secret = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ'; // "12345678901234567890"
 

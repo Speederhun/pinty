@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pinty/i18n.dart';
 import 'package:pinty/crypto/vault_crypto.dart';
 import 'package:pinty/data/backup.dart';
 import 'package:pinty/models/vault_item.dart';
@@ -15,6 +16,7 @@ KdfParams _fast() => KdfParams(
     );
 
 void main() {
+  setLang('hu');
   test('titkosított mentés: oda-vissza, hibás jelszó, nincs nyílt szöveg', () async {
     final items = [
       VaultItem(id: 'a', name: 'GitHub', password: 'titkos-123', notes: 'szupertitkos'),

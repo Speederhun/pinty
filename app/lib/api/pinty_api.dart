@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../crypto/vault_crypto.dart';
+import '../i18n.dart';
 
 class ApiException implements Exception {
   ApiException(this.status, this.message);
@@ -14,7 +15,7 @@ class ApiException implements Exception {
 
 /// 409-es válasz: valaki közben módosította az elemet; [current] a szerveren lévő állapot.
 class ConflictException extends ApiException {
-  ConflictException(this.current) : super(409, 'ütközés');
+  ConflictException(this.current) : super(409, tr('ütközés'));
   final RemoteItem? current;
 }
 

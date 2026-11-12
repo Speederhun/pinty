@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
+import '../i18n.dart';
 
 /// Feloldás ujjlenyomattal / Windows Hello-val / eszköz-PIN-nel. A mesterkulcsot az operációs rendszer
 /// biztonságos tárolója (Android Keystore, Windows hitelesítő-tár) őrzi, és csak sikeres azonosítás után olvassuk ki.
@@ -72,14 +73,14 @@ class BiometricUnlock implements UnlockHelper {
 
   @override
   Future<bool> enable(String account, Map<String, String> secrets) async {
-    if (!await _authenticate('Erősítsd meg a biometrikus feloldás bekapcsolását')) return false;
+    if (!await _authenticate(tr('Erősítsd meg a biometrikus feloldás bekapcsolását'))) return false;
     await _store.write(key: _key(account), value: jsonEncode(secrets));
     return true;
   }
 
   @override
   Future<Map<String, String>?> read(String account) async {
-    if (!await _authenticate('Pinty feloldása')) return null;
+    if (!await _authenticate(tr('Pinty feloldása'))) return null;
     try {
       final raw = await _store.read(key: _key(account));
       if (raw == null) return null;

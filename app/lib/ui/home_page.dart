@@ -10,6 +10,7 @@ import '../theme/pinty_theme.dart';
 import '../util/totp.dart';
 import 'folder_manager.dart';
 import 'generator_dialog.dart';
+import '../i18n.dart';
 
 class PasswordsPage extends StatelessWidget {
   const PasswordsPage({super.key, required this.state});
@@ -28,13 +29,13 @@ class PasswordsPage extends StatelessWidget {
                 backgroundColor: p.bg,
                 actions: [
                   IconButton(
-                    tooltip: 'Szinkronizálás',
+                    tooltip: tr('Szinkronizálás'),
                     onPressed: state.sync,
                     icon: const Icon(Icons.sync),
                   ),
                   ThemeMenu(state: state),
                   IconButton(
-                    tooltip: 'Zárolás',
+                    tooltip: tr('Zárolás'),
                     onPressed: state.lock,
                     icon: const Icon(Icons.lock_outline),
                   ),
@@ -44,7 +45,7 @@ class PasswordsPage extends StatelessWidget {
             ? null
             : FloatingActionButton(
                 onPressed: () => _edit(context, state),
-                tooltip: 'Új elem',
+                tooltip: tr('Új elem'),
                 child: const Icon(Icons.add),
               ),
         body: Row(children: [
@@ -81,10 +82,10 @@ class _Sidebar extends StatelessWidget {
         FilledButton.icon(
           onPressed: () => _edit(context, state),
           icon: const Icon(Icons.add),
-          label: const Text('Új elem'),
+          label: Text(tr('Új elem')),
         ),
         const Spacer(),
-        const Text('TÉMA', style: TextStyle(color: muted, fontSize: 11, letterSpacing: 1)),
+        Text(tr('TÉMA'), style: TextStyle(color: muted, fontSize: 11, letterSpacing: 1)),
         const SizedBox(height: 8),
         Row(children: [
           for (final id in PintyThemeId.values)
@@ -123,7 +124,7 @@ class _Sidebar extends StatelessWidget {
           ),
           onPressed: state.sync,
           icon: const Icon(Icons.sync),
-          label: const Text('Szinkronizálás'),
+          label: Text(tr('Szinkronizálás')),
         ),
         const SizedBox(height: 8),
         OutlinedButton.icon(
@@ -133,7 +134,7 @@ class _Sidebar extends StatelessWidget {
           ),
           onPressed: state.lock,
           icon: const Icon(Icons.lock_outline),
-          label: const Text('Zárolás most'),
+          label: Text(tr('Zárolás most')),
         ),
       ]),
     );
@@ -147,7 +148,7 @@ class ThemeMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) => PopupMenuButton<PintyThemeId>(
         icon: const Icon(Icons.palette_outlined),
-        tooltip: 'Téma',
+        tooltip: tr('Téma'),
         onSelected: state.setTheme,
         itemBuilder: (_) => [
           for (final id in PintyThemeId.values) PopupMenuItem(value: id, child: Text(id.label)),
@@ -199,8 +200,8 @@ class _ItemListState extends State<_ItemList> {
         child: TextField(
           controller: _search,
           onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(
-            hintText: 'Keresés…',
+          decoration: InputDecoration(
+            hintText: tr('Keresés…'),
             prefixIcon: Icon(Icons.search),
             isDense: true,
           ),
@@ -216,7 +217,7 @@ class _ItemListState extends State<_ItemList> {
               padding: const EdgeInsets.only(right: 6),
               child: FilterChip(
                 avatar: const Icon(Icons.star_outline, size: 16),
-                label: const Text('Kedvencek'),
+                label: Text(tr('Kedvencek')),
                 selected: _favs,
                 onSelected: (v) => setState(() => _favs = v),
               ),
@@ -225,7 +226,7 @@ class _ItemListState extends State<_ItemList> {
               padding: const EdgeInsets.only(right: 6),
               child: ActionChip(
                 avatar: const Icon(Icons.folder_open, size: 16),
-                label: const Text('Mappák…'),
+                label: Text(tr('Mappák…')),
                 onPressed: () async {
                   final picked = await showFolderManager(context, state, 'login');
                   if (picked != null && mounted) setState(() => _folder = picked.isEmpty ? null : picked);
@@ -237,7 +238,7 @@ class _ItemListState extends State<_ItemList> {
                 padding: const EdgeInsets.only(right: 6),
                 child: ActionChip(
                   avatar: const Icon(Icons.clear, size: 16),
-                  label: const Text('Szűrők törlése'),
+                  label: Text(tr('Szűrők törlése')),
                   onPressed: () => setState(() {
                     _folder = null;
                     _tag = null;
@@ -269,7 +270,7 @@ class _ItemListState extends State<_ItemList> {
       ),
       Expanded(
         child: shown.isEmpty
-            ? Center(child: Text(state.items.isEmpty ? 'Még nincs elem. Adj hozzá egyet!' : 'Nincs találat.'))
+            ? Center(child: Text(state.items.isEmpty ? tr('Még nincs elem. Adj hozzá egyet!') : tr('Nincs találat.')))
             : ListView(
                 padding: const EdgeInsets.all(12),
                 children: [
@@ -334,11 +335,11 @@ class _DetailBodyState extends State<_DetailBody> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Elem a kukába'),
-        content: Text('A(z) „${widget.item.name}” 30 napig a kukában marad, onnan visszaállítható.'),
+        title: Text(tr('Elem a kukába')),
+        content: Text(trf('A(z) „%1” 30 napig a kukában marad, onnan visszaállítható.', [widget.item.name])),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Mégse')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Kukába')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Mégse'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Kukába'))),
         ],
       ),
     );
@@ -355,28 +356,28 @@ class _DetailBodyState extends State<_DetailBody> {
         Expanded(child: Text(it.name, style: Theme.of(context).textTheme.headlineMedium)),
         OutlinedButton(
           onPressed: () => _edit(context, widget.state, it),
-          child: const Text('Szerkesztés'),
+          child: Text(tr('Szerkesztés')),
         ),
-        IconButton(tooltip: 'Kukába', onPressed: _delete, icon: const Icon(Icons.delete_outline)),
+        IconButton(tooltip: tr('Kukába'), onPressed: _delete, icon: const Icon(Icons.delete_outline)),
       ]),
       const SizedBox(height: 16),
       Card(
         child: Column(children: [
-          _Row(label: 'Felhasználónév', value: it.username, onCopy: () => copySecret(it.username)),
+          _Row(label: tr('Felhasználónév'), value: it.username, onCopy: () => copySecret(it.username)),
           _Row(
-            label: 'Jelszó',
+            label: tr('Jelszó'),
             value: _show ? it.password : '••••••••••••',
             onCopy: () => copySecret(it.password),
             extra: TextButton(
               onPressed: () => setState(() => _show = !_show),
-              child: Text(_show ? 'Elrejtés' : 'Mutatás'),
+              child: Text(_show ? tr('Elrejtés') : tr('Mutatás')),
             ),
           ),
-          _Row(label: 'Weboldal', value: it.url),
-          if (it.folder.isNotEmpty) _Row(label: 'Mappa', value: it.folder),
+          _Row(label: tr('Weboldal'), value: it.url),
+          if (it.folder.isNotEmpty) _Row(label: tr('Mappa'), value: it.folder),
           if (it.tags.isNotEmpty)
             ListTile(
-              title: Text('Címkék', style: Theme.of(context).textTheme.labelMedium),
+              title: Text(tr('Címkék'), style: Theme.of(context).textTheme.labelMedium),
               subtitle: Wrap(spacing: 6, children: [for (final t in it.tags) Chip(label: Text('#$t'))]),
             ),
           if (it.totpSecret.trim().isNotEmpty) _TotpTile(secret: it.totpSecret),
@@ -386,15 +387,15 @@ class _DetailBodyState extends State<_DetailBody> {
         const SizedBox(height: 16),
         Card(
           child: ExpansionTile(
-            title: Text('Jelszó-előzmények (${it.history.length})'),
+            title: Text(trf('Jelszó-előzmények (%1)', [it.history.length])),
             children: [
               for (final h in it.history)
                 ListTile(
                   dense: true,
                   title: Text(_show ? h.password : '••••••••••••'),
-                  subtitle: Text('Lecserélve: ${h.changedAt.toLocal().toString().substring(0, 16)}'),
+                  subtitle: Text(trf('Lecserélve: %1', [h.changedAt.toLocal().toString().substring(0, 16)])),
                   trailing: IconButton(
-                    tooltip: 'Másolás',
+                    tooltip: tr('Másolás'),
                     icon: const Icon(Icons.copy_outlined, size: 18),
                     onPressed: () => copySecret(h.password),
                   ),
@@ -408,10 +409,10 @@ class _DetailBodyState extends State<_DetailBody> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Egyéb információ', style: Theme.of(context).textTheme.labelMedium),
+            Text(tr('Egyéb információ'), style: Theme.of(context).textTheme.labelMedium),
             const SizedBox(height: 8),
             SelectableText(
-              it.notes.isEmpty ? 'Ide bármit írhatsz: jegyzetek, kódok, emlékeztetők…' : it.notes,
+              it.notes.isEmpty ? tr('Ide bármit írhatsz: jegyzetek, kódok, emlékeztetők…') : it.notes,
             ),
           ]),
         ),
@@ -451,15 +452,15 @@ class _TotpTileState extends State<_TotpTile> {
     try {
       code = totpCode(widget.secret);
     } on FormatException {
-      return const ListTile(
-        title: Text('Hitelesítő kód (TOTP)'),
-        subtitle: Text('Érvénytelen titkos kulcs'),
+      return ListTile(
+        title: Text(tr('Hitelesítő kód (TOTP)')),
+        subtitle: Text(tr('Érvénytelen titkos kulcs')),
       );
     }
     final remaining = totpRemaining();
     final pretty = '${code.substring(0, code.length ~/ 2)} ${code.substring(code.length ~/ 2)}';
     return ListTile(
-      title: Text('Hitelesítő kód (TOTP)', style: Theme.of(context).textTheme.labelMedium),
+      title: Text(tr('Hitelesítő kód (TOTP)'), style: Theme.of(context).textTheme.labelMedium),
       subtitle: Text(
         pretty,
         style: Theme.of(context).textTheme.headlineSmall?.copyWith(letterSpacing: 2, fontWeight: FontWeight.w700),
@@ -469,11 +470,11 @@ class _TotpTileState extends State<_TotpTile> {
           width: 28,
           height: 28,
           child: Semantics(
-            label: '$remaining másodperc van hátra',
+            label: trf('%1 másodperc van hátra', [remaining]),
             child: CircularProgressIndicator(value: remaining / 30, strokeWidth: 3),
           ),
         ),
-        IconButton(tooltip: 'Másolás', onPressed: () => copySecret(code), icon: const Icon(Icons.copy_outlined)),
+        IconButton(tooltip: tr('Másolás'), onPressed: () => copySecret(code), icon: const Icon(Icons.copy_outlined)),
       ]),
     );
   }
@@ -493,7 +494,7 @@ class _Row extends StatelessWidget {
         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
           if (extra != null) extra!,
           if (onCopy != null)
-            IconButton(tooltip: 'Másolás', onPressed: onCopy, icon: const Icon(Icons.copy_outlined)),
+            IconButton(tooltip: tr('Másolás'), onPressed: onCopy, icon: const Icon(Icons.copy_outlined)),
         ]),
       );
 }
@@ -521,21 +522,21 @@ Future<void> _edit(BuildContext context, AppState state, [VaultItem? existing]) 
   final ok = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: Text(existing == null ? 'Új elem' : 'Elem szerkesztése'),
+      title: Text(existing == null ? tr('Új elem') : tr('Elem szerkesztése')),
       content: SizedBox(
         width: 440,
         child: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextField(controller: name, decoration: const InputDecoration(labelText: 'Név')),
+            TextField(controller: name, decoration: InputDecoration(labelText: tr('Név'))),
             const SizedBox(height: 12),
-            TextField(controller: user, decoration: const InputDecoration(labelText: 'Felhasználónév')),
+            TextField(controller: user, decoration: InputDecoration(labelText: tr('Felhasználónév'))),
             const SizedBox(height: 12),
             TextField(
               controller: pass,
               decoration: InputDecoration(
-                labelText: 'Jelszó',
+                labelText: tr('Jelszó'),
                 suffixIcon: IconButton(
-                  tooltip: 'Jelszó generálása',
+                  tooltip: tr('Jelszó generálása'),
                   icon: const Icon(Icons.auto_fix_high),
                   onPressed: () async {
                     final generated = await showGeneratorDialog(ctx);
@@ -545,22 +546,22 @@ Future<void> _edit(BuildContext context, AppState state, [VaultItem? existing]) 
               ),
             ),
             const SizedBox(height: 12),
-            TextField(controller: url, decoration: const InputDecoration(labelText: 'Weboldal')),
+            TextField(controller: url, decoration: InputDecoration(labelText: tr('Weboldal'))),
             const SizedBox(height: 12),
             TextField(
               controller: totp,
-              decoration: const InputDecoration(
-                labelText: 'TOTP titkos kulcs (opcionális)',
-                helperText: 'Base32 kulcs vagy otpauth:// hivatkozás',
+              decoration: InputDecoration(
+                labelText: tr('TOTP titkos kulcs (opcionális)'),
+                helperText: tr('Base32 kulcs vagy otpauth:// hivatkozás'),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: folder,
               decoration: InputDecoration(
-                labelText: 'Mappa',
+                labelText: tr('Mappa'),
                 suffixIcon: IconButton(
-                  tooltip: 'Mappa kiválasztása',
+                  tooltip: tr('Mappa kiválasztása'),
                   icon: const Icon(Icons.drive_file_move_outline),
                   onPressed: () async {
                     final picked = await pickFolder(ctx, state, 'login', folder.text);
@@ -572,12 +573,12 @@ Future<void> _edit(BuildContext context, AppState state, [VaultItem? existing]) 
             const SizedBox(height: 12),
             TextField(
               controller: tags,
-              decoration: const InputDecoration(labelText: 'Címkék', helperText: 'Vesszővel elválasztva'),
+              decoration: InputDecoration(labelText: tr('Címkék'), helperText: tr('Vesszővel elválasztva')),
             ),
             StatefulBuilder(
               builder: (ctx, setS) => SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Kedvenc'),
+                title: Text(tr('Kedvenc')),
                 value: favorite,
                 onChanged: (v) => setS(() => favorite = v),
               ),
@@ -587,14 +588,14 @@ Future<void> _edit(BuildContext context, AppState state, [VaultItem? existing]) 
               controller: notes,
               minLines: 3,
               maxLines: 8,
-              decoration: const InputDecoration(labelText: 'Egyéb információ', alignLabelWithHint: true),
+              decoration: InputDecoration(labelText: tr('Egyéb információ'), alignLabelWithHint: true),
             ),
           ]),
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Mégse')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Mentés')),
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Mégse'))),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Mentés'))),
       ],
     ),
   );

@@ -14,17 +14,18 @@ import 'theme/pinty_theme.dart';
 import 'data/backup.dart';
 import 'util/biometric.dart';
 import 'util/note_logic.dart';
+import 'i18n.dart';
 
 enum Stage { loading, welcome, locked, unlocked }
 
 String friendlyError(Object e) {
   if (e is VaultException) return e.message;
-  if (e is ApiException) return e.message;
+  if (e is ApiException) return tr(e.message);
   if (e is SocketException || e is http.ClientException || e is TimeoutException) {
-    return 'A szerver nem érhető el. Ellenőrizd a címet és a hálózatot.';
+    return tr('A szerver nem érhető el. Ellenőrizd a címet és a hálózatot.');
   }
-  if (e is FormatException) return 'Érvénytelen szervercím vagy szerverválasz.';
-  return 'Váratlan hiba: $e';
+  if (e is FormatException) return tr('Érvénytelen szervercím vagy szerverválasz.');
+  return trf('Váratlan hiba: %1', [e]);
 }
 
 /// Az app állapota: melyik képernyő látszik, a téma, és a széf műveletei.
@@ -85,7 +86,7 @@ class AppState extends ChangeNotifier {
   /// Új, üres jegyzet (opcionálisan kezdőszöveggel); kijelöli.
   Future<VaultItem> newNote({String title = '', String folder = '', String body = ''}) async {
     final taken = {for (final n in repo.notes) n.name.toLowerCase()};
-    var name = title.trim().isEmpty ? 'Névtelen jegyzet' : title.trim();
+    var name = title.trim().isEmpty ? tr('Névtelen jegyzet') : title.trim();
     var candidate = name;
     for (var i = 2; taken.contains(candidate.toLowerCase()); i++) {
       candidate = '$name $i';
@@ -123,7 +124,7 @@ class AppState extends ChangeNotifier {
       return existing;
     }
     final tpl = noteIndex.notes.where((n) => n.folder == 'Sablonok' && n.name.toLowerCase() == 'napi').firstOrNull;
-    final body = tpl != null ? applyTemplate(tpl.notes, title: title, now: day) : '# $title\n\n## Teendők\n- [ ] \n\n## Jegyzetek\n';
+    final body = tpl != null ? applyTemplate(tpl.notes, title: title, now: day) : trf('# %1\n\n## Teendők\n- [ ] \n\n## Jegyzetek\n', [title]);
     return newNote(title: title, folder: 'Napi', body: body);
   }
 
@@ -132,7 +133,7 @@ class AppState extends ChangeNotifier {
   /// Kép csatolása a széfhez (a jegyzetekben `![[név]]`-vel beágyazható). A neve egyedi lesz.
   Future<VaultItem> addImage(String name, Uint8List bytes) async {
     if (bytes.length > maxImageBytes) {
-      throw VaultException('A kép legfeljebb ${maxImageBytes ~/ (1024 * 1024)} MB lehet.');
+      throw VaultException(trf('A kép legfeljebb %1 MB lehet.', [maxImageBytes ~/ (1024 * 1024)]));
     }
     final lower = name.toLowerCase();
     final mime = lower.endsWith('.png')
@@ -144,7 +145,7 @@ class AppState extends ChangeNotifier {
                 : (lower.endsWith('.jpg') || lower.endsWith('.jpeg'))
                     ? 'image/jpeg'
                     : '';
-    if (mime.isEmpty) throw VaultException('Csak PNG, JPG, GIF vagy WebP kép csatolható.');
+    if (mime.isEmpty) throw VaultException(tr('Csak PNG, JPG, GIF vagy WebP kép csatolható.'));
     var unique = name;
     for (var i = 2; noteIndex.fileByName(unique) != null; i++) {
       final dot = name.lastIndexOf('.');
@@ -167,8 +168,22 @@ class AppState extends ChangeNotifier {
     return list.isEmpty ? null : list.first;
   }
 
-  Future<void> init() async {
+  /// Az app nyelve: `en` (alap) vagy `hu`.
+  String lang = 'en';
+
+  Future<void> setLanguage(String code) async {
+    lang = code == 'hu' ? 'hu' : 'en';
+    setLang(lang);
+    notifyListeners();
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('lang', lang);
+  }
+
+  Future<void> init() async {
+    languageRequest = setLanguage;
+    final prefs = await SharedPreferences.getInstance();
+    lang = prefs.getString('lang') == 'hu' ? 'hu' : 'en';
+    setLang(lang);
     final name = prefs.getString('theme');
     theme = PintyThemeId.values.firstWhere(
       (t) => t.name == name,
@@ -272,7 +287,7 @@ class AppState extends ChangeNotifier {
   Future<void> unlockBiometric() async {
     final ok = await _guard(() async {
       final secrets = await unlockHelper.read(email);
-      if (secrets == null) throw VaultException('A biometrikus azonosítás nem sikerült.');
+      if (secrets == null) throw VaultException(tr('A biometrikus azonosítás nem sikerült.'));
       try {
         await repo.unlockWithSecrets(secrets);
       } on VaultException {
@@ -287,7 +302,7 @@ class AppState extends ChangeNotifier {
   Future<bool> enableBiometric() async {
     final ok = await _guard(() async {
       final done = await unlockHelper.enable(email, await repo.exportUnlockSecrets());
-      if (!done) throw VaultException('A biometrikus azonosítás nem sikerült.');
+      if (!done) throw VaultException(tr('A biometrikus azonosítás nem sikerült.'));
       biometricEnabled = true;
     });
     return ok;
@@ -371,18 +386,18 @@ class AppState extends ChangeNotifier {
   Future<void> sync() async {
     if (stage != Stage.unlocked || _syncing) return;
     _syncing = true;
-    syncStatus = 'Szinkronizálás…';
+    syncStatus = tr('Szinkronizálás…');
     notifyListeners();
     try {
       final r = await repo.sync();
       await repo.purgeTrash();
       syncStatus = r.conflicts > 0
-          ? 'Szinkronizálva · ${r.conflicts} ütköző példány'
-          : 'Szinkronizálva';
+          ? trf('Szinkronizálva · %1 ütköző példány', [r.conflicts])
+          : tr('Szinkronizálva');
     } catch (e) {
       syncStatus = e is ApiException && e.status == 401
-          ? 'Nincs szinkron: a mesterjelszót máshol megváltoztatták. Jelentkezz ki ezen az eszközön, és lépj be újra.'
-          : 'Nincs szinkron: ${friendlyError(e)}';
+          ? tr('Nincs szinkron: a mesterjelszót máshol megváltoztatták. Jelentkezz ki ezen az eszközön, és lépj be újra.')
+          : trf('Nincs szinkron: %1', [friendlyError(e)]);
     } finally {
       _syncing = false;
       notifyListeners();
@@ -566,7 +581,7 @@ class AppState extends ChangeNotifier {
           }
           var title = src.name;
           for (var n = 2; noteTitles.containsKey(title.toLowerCase()); n++) {
-            title = '${src.name} (importált${n > 2 ? ' $n' : ''})';
+            title = trf('%1 (importált%2)', [src.name, n > 2 ? ' $n' : '']);
           }
           final it = _withNewId(VaultItem.fromJson(src.toJson())..trashedAt = null)..name = title;
           await repo.upsert(it);

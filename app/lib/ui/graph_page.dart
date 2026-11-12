@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../theme/pinty_theme.dart';
 import '../util/note_logic.dart';
+import '../i18n.dart';
 
 /// A jegyzetek kapcsolati gráfja. Koppintásra megnyitja a jegyzetet.
 class GraphPage extends StatefulWidget {
@@ -54,13 +55,13 @@ class _GraphPageState extends State<GraphPage> {
       listenable: state,
       builder: (context, _) => Scaffold(
         appBar: AppBar(
-          title: const Text('Gráf'),
+          title: Text(tr('Gráf')),
           backgroundColor: p.bg,
           actions: [
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: FilterChip(
-                label: const Text('Csak a környezet'),
+                label: Text(tr('Csak a környezet')),
                 selected: _local,
                 onSelected: state.selectedNoteId == null ? null : (v) => setState(() => _local = v),
               ),
@@ -72,7 +73,7 @@ class _GraphPageState extends State<GraphPage> {
           builder: (context, snap) {
             if (!snap.hasData) return const Center(child: CircularProgressIndicator());
             final laid = snap.data!;
-            if (laid.graph.nodes.isEmpty) return const Center(child: Text('Még nincs jegyzet.'));
+            if (laid.graph.nodes.isEmpty) return Center(child: Text(tr('Még nincs jegyzet.')));
             return _GraphView(
               laid: laid,
               state: state,

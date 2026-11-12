@@ -5,6 +5,7 @@ import '../theme/pinty_theme.dart';
 import 'home_page.dart';
 import 'notes_page.dart';
 import 'settings_page.dart';
+import '../i18n.dart';
 
 /// A bejelentkezés utáni keret: két fül (Jelszavak / Jegyzetek).
 /// Széles képernyőn keskeny oldalsáv, telefonon alsó fülsor.
@@ -53,12 +54,12 @@ class _HomePageState extends State<HomePage> {
         bottomNavigationBar: NavigationBar(
           selectedIndex: state.tab,
           onDestinationSelected: state.setTab,
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.key_outlined), selectedIcon: Icon(Icons.key), label: 'Jelszavak'),
+          destinations: [
+            NavigationDestination(icon: Icon(Icons.key_outlined), selectedIcon: Icon(Icons.key), label: tr('Jelszavak')),
             NavigationDestination(
-                icon: Icon(Icons.edit_note_outlined), selectedIcon: Icon(Icons.edit_note), label: 'Jegyzetek'),
+                icon: Icon(Icons.edit_note_outlined), selectedIcon: Icon(Icons.edit_note), label: tr('Jegyzetek')),
             NavigationDestination(
-                icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Beállítások'),
+                icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: tr('Beállítások')),
           ],
         ),
       );
@@ -100,14 +101,14 @@ class _Rail extends StatelessWidget {
       color: Color.lerp(palette.side, Colors.black, 0.25),
       child: Column(children: [
         const SizedBox(height: 16),
-        tab(0, Icons.key, 'Jelszavak'),
-        tab(1, Icons.edit_note, 'Jegyzetek'),
-        tab(2, Icons.settings, 'Beállítások'),
+        tab(0, Icons.key, tr('Jelszavak')),
+        tab(1, Icons.edit_note, tr('Jegyzetek')),
+        tab(2, Icons.settings, tr('Beállítások')),
         const Spacer(),
         IconButton(
-            tooltip: 'Szinkronizálás', color: Colors.white70, onPressed: state.sync, icon: const Icon(Icons.sync)),
+            tooltip: tr('Szinkronizálás'), color: Colors.white70, onPressed: state.sync, icon: const Icon(Icons.sync)),
         IconButton(
-            tooltip: 'Zárolás', color: Colors.white70, onPressed: state.lock, icon: const Icon(Icons.lock_outline)),
+            tooltip: tr('Zárolás'), color: Colors.white70, onPressed: state.lock, icon: const Icon(Icons.lock_outline)),
         const SizedBox(height: 12),
       ]),
     );

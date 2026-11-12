@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'api/pinty_api.dart';
 import 'app_state.dart';
@@ -66,7 +67,15 @@ class _PintyAppState extends State<PintyApp> with WidgetsBindingObserver {
     return ListenableBuilder(
       listenable: state,
       builder: (context, _) => MaterialApp(
+        key: ValueKey(state.lang),
         title: 'Pinty',
+        locale: Locale(state.lang),
+        supportedLocales: const [Locale('en'), Locale('hu')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         debugShowCheckedModeBanner: false,
         navigatorKey: _navKey,
         theme: buildTheme(state.theme),

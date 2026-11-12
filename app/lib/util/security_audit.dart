@@ -1,16 +1,17 @@
 import 'dart:math';
 
 import '../models/vault_item.dart';
+import '../i18n.dart';
 
 enum Strength { veryWeak, weak, fair, good, strong }
 
 extension StrengthLabel on Strength {
   String get label => switch (this) {
-        Strength.veryWeak => 'Nagyon gyenge',
-        Strength.weak => 'Gyenge',
-        Strength.fair => 'Közepes',
-        Strength.good => 'Jó',
-        Strength.strong => 'Erős',
+        Strength.veryWeak => tr('Nagyon gyenge'),
+        Strength.weak => tr('Gyenge'),
+        Strength.fair => tr('Közepes'),
+        Strength.good => tr('Jó'),
+        Strength.strong => tr('Erős'),
       };
 }
 

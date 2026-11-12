@@ -22,6 +22,7 @@ import 'folder_manager.dart';
 import 'graph_page.dart';
 import 'home_page.dart' show ThemeMenu;
 import 'live_markdown.dart';
+import '../i18n.dart';
 
 void _toast(BuildContext context, String msg) {
   ScaffoldMessenger.of(context)
@@ -78,7 +79,7 @@ class _NotesPageState extends State<NotesPage> {
           listenable: state,
           builder: (_, __) => Scaffold(
             body: state.selectedNote == null
-                ? const Center(child: Text('A jegyzet törölve lett.'))
+                ? Center(child: Text(tr('A jegyzet törölve lett.')))
                 : NoteEditor(
                     key: ValueKey(state.selectedNote!.id),
                     state: state,
@@ -101,13 +102,13 @@ class _NotesPageState extends State<NotesPage> {
   Future<void> _fromTemplate() async {
     final templates = state.noteIndex.notes.where((n) => n.folder == 'Sablonok').toList();
     if (templates.isEmpty) {
-      _toast(context, 'Hozz létre jegyzeteket a „Sablonok” mappában (pl. {{date}}, {{title}} helyőrzőkkel).');
+      _toast(context, tr('Hozz létre jegyzeteket a „Sablonok” mappában (pl. {{date}}, {{title}} helyőrzőkkel).'));
       return;
     }
     final tpl = await showDialog<VaultItem>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('Új jegyzet sablonból'),
+        title: Text(tr('Új jegyzet sablonból')),
         children: [
           for (final t in templates) SimpleDialogOption(onPressed: () => Navigator.pop(ctx, t), child: Text(t.name)),
         ],
@@ -139,7 +140,7 @@ class _NotesPageState extends State<NotesPage> {
         skipped++;
       }
     }
-    if (mounted) _toast(context, '$ok jegyzet importálva${skipped > 0 ? ', $skipped kihagyva (túl nagy)' : ''}.');
+    if (mounted) _toast(context, trf('%1 jegyzet importálva%2.', [ok, skipped > 0 ? trf(', %1 kihagyva (túl nagy)', [skipped]) : '']));
   }
 
   Future<void> _quickOpen() async {
@@ -159,13 +160,12 @@ class _NotesPageState extends State<NotesPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Jegyzetek exportálása'),
-        content: const Text(
-            'A zip titkosítatlan: minden jegyzet külön .md fájl, a képek az attachments mappában. '
-            'Mentsd biztonságos helyre, és használat után töröld.'),
+        title: Text(tr('Jegyzetek exportálása')),
+        content: Text(
+            tr('A zip titkosítatlan: minden jegyzet külön .md fájl, a képek az attachments mappában. Mentsd biztonságos helyre, és használat után töröld.')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Mégse')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Exportálás')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Mégse'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Exportálás'))),
         ],
       ),
     );
@@ -173,10 +173,10 @@ class _NotesPageState extends State<NotesPage> {
     final idx = state.noteIndex;
     final bytes = exportNotesZip(idx.notes, idx.files);
     final name = 'pinty-jegyzetek-${dateTitle(DateTime.now())}.zip';
-    final path = await FilePicker.platform.saveFile(dialogTitle: 'Mentés', fileName: name, bytes: bytes);
+    final path = await FilePicker.platform.saveFile(dialogTitle: tr('Mentés'), fileName: name, bytes: bytes);
     if (path == null) return;
     if (!Platform.isAndroid && !Platform.isIOS) await File(path).writeAsBytes(bytes);
-    if (mounted) _toast(context, '${idx.notes.length} jegyzet exportálva.');
+    if (mounted) _toast(context, trf('%1 jegyzet exportálva.', [idx.notes.length]));
   }
 
   Future<void> _folders() async {
@@ -229,21 +229,21 @@ class _NotesPageState extends State<NotesPage> {
       if (!wide) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Jegyzetek'),
+            title: Text(tr('Jegyzetek')),
             backgroundColor: p.bg,
             actions: [
-              IconButton(tooltip: 'Gyorskereső', onPressed: _quickOpen, icon: const Icon(Icons.manage_search)),
-              IconButton(tooltip: 'Gráf', onPressed: _graph, icon: const Icon(Icons.hub_outlined)),
-              IconButton(tooltip: 'Exportálás', onPressed: _exportNotes, icon: const Icon(Icons.ios_share)),
-              IconButton(tooltip: 'Napi jegyzet', onPressed: _daily, icon: const Icon(Icons.today_outlined)),
-              IconButton(tooltip: 'Szinkronizálás', onPressed: state.sync, icon: const Icon(Icons.sync)),
+              IconButton(tooltip: tr('Gyorskereső'), onPressed: _quickOpen, icon: const Icon(Icons.manage_search)),
+              IconButton(tooltip: tr('Gráf'), onPressed: _graph, icon: const Icon(Icons.hub_outlined)),
+              IconButton(tooltip: tr('Exportálás'), onPressed: _exportNotes, icon: const Icon(Icons.ios_share)),
+              IconButton(tooltip: tr('Napi jegyzet'), onPressed: _daily, icon: const Icon(Icons.today_outlined)),
+              IconButton(tooltip: tr('Szinkronizálás'), onPressed: state.sync, icon: const Icon(Icons.sync)),
               ThemeMenu(state: state),
-              IconButton(tooltip: 'Zárolás', onPressed: state.lock, icon: const Icon(Icons.lock_outline)),
+              IconButton(tooltip: tr('Zárolás'), onPressed: state.lock, icon: const Icon(Icons.lock_outline)),
             ],
           ),
           floatingActionButton: FloatingActionButton(
             onPressed: () => _create(),
-            tooltip: 'Új jegyzet',
+            tooltip: tr('Új jegyzet'),
             child: const Icon(Icons.add),
           ),
           body: list,
@@ -260,10 +260,10 @@ class _NotesPageState extends State<NotesPage> {
                     child: Column(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.edit_note, size: 56, color: p.muted),
                       const SizedBox(height: 12),
-                      const Text('Válassz egy jegyzetet, vagy hozz létre újat.'),
+                      Text(tr('Válassz egy jegyzetet, vagy hozz létre újat.')),
                       const SizedBox(height: 12),
                       FilledButton.icon(
-                          onPressed: () => _create(), icon: const Icon(Icons.add), label: const Text('Új jegyzet')),
+                          onPressed: () => _create(), icon: const Icon(Icons.add), label: Text(tr('Új jegyzet'))),
                     ]),
                   )
                 : NoteEditor(
@@ -351,8 +351,8 @@ class _QuickSwitcherState extends State<_QuickSwitcher> {
                 autofocus: true,
                 onChanged: (_) => setState(() => _sel = 0),
                 onSubmitted: (_) => choose(_sel),
-                decoration: const InputDecoration(
-                  hintText: 'Jegyzet megnyitása… (Enter: megnyit, ↑↓: választ)',
+                decoration: InputDecoration(
+                  hintText: tr('Jegyzet megnyitása… (Enter: megnyit, ↑↓: választ)'),
                   prefixIcon: Icon(Icons.manage_search),
                 ),
               ),
@@ -373,10 +373,10 @@ class _QuickSwitcherState extends State<_QuickSwitcher> {
                     dense: true,
                     selected: _sel == results.length,
                     leading: const Icon(Icons.add, size: 18),
-                    title: Text('Új jegyzet: „$title”'),
+                    title: Text(trf('Új jegyzet: „%1”', [title])),
                     onTap: () => choose(results.length),
                   ),
-                if (count == 0) const Padding(padding: EdgeInsets.all(16), child: Text('Még nincs jegyzet.')),
+                if (count == 0) Padding(padding: EdgeInsets.all(16), child: Text(tr('Még nincs jegyzet.'))),
               ]),
             ),
           ]),
@@ -429,12 +429,12 @@ class _NoteList extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 12, 4, 0),
           child: Row(children: [
             Expanded(
-              child: FilledButton.icon(onPressed: onNew, icon: const Icon(Icons.add), label: const Text('Új jegyzet')),
+              child: FilledButton.icon(onPressed: onNew, icon: const Icon(Icons.add), label: Text(tr('Új jegyzet'))),
             ),
-            IconButton(tooltip: 'Gyorskereső (Ctrl+O)', onPressed: onQuickOpen, icon: const Icon(Icons.manage_search)),
-            IconButton(tooltip: 'Napi jegyzet', onPressed: onDaily, icon: const Icon(Icons.today_outlined)),
+            IconButton(tooltip: tr('Gyorskereső (Ctrl+O)'), onPressed: onQuickOpen, icon: const Icon(Icons.manage_search)),
+            IconButton(tooltip: tr('Napi jegyzet'), onPressed: onDaily, icon: const Icon(Icons.today_outlined)),
             PopupMenuButton<String>(
-              tooltip: 'Továbbiak',
+              tooltip: tr('Továbbiak'),
               onSelected: (v) {
                 switch (v) {
                   case 'graph':
@@ -447,11 +447,11 @@ class _NoteList extends StatelessWidget {
                     onExport();
                 }
               },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'graph', child: Text('Gráf nézet')),
-                PopupMenuItem(value: 'template', child: Text('Új jegyzet sablonból')),
-                PopupMenuItem(value: 'import', child: Text('Markdown importálása…')),
-                PopupMenuItem(value: 'export', child: Text('Jegyzetek exportálása (zip)…')),
+              itemBuilder: (_) => [
+                PopupMenuItem(value: 'graph', child: Text(tr('Gráf nézet'))),
+                PopupMenuItem(value: 'template', child: Text(tr('Új jegyzet sablonból'))),
+                PopupMenuItem(value: 'import', child: Text(tr('Markdown importálása…'))),
+                PopupMenuItem(value: 'export', child: Text(tr('Jegyzetek exportálása (zip)…'))),
               ],
             ),
           ]),
@@ -462,13 +462,13 @@ class _NoteList extends StatelessWidget {
           controller: search,
           onChanged: (_) => onSearch(),
           decoration: InputDecoration(
-            hintText: 'Keresés… (tag:címke, folder:mappa, -kizár)',
+            hintText: tr('Keresés… (tag:címke, folder:mappa, -kizár)'),
             prefixIcon: const Icon(Icons.search),
             isDense: true,
             suffixIcon: search.text.isEmpty
                 ? null
                 : IconButton(
-                    tooltip: 'Törlés',
+                    tooltip: tr('Törlés'),
                     icon: const Icon(Icons.close),
                     onPressed: () {
                       search.clear();
@@ -489,7 +489,7 @@ class _NoteList extends StatelessWidget {
                 padding: const EdgeInsets.only(right: 6),
                 child: ActionChip(
                   avatar: const Icon(Icons.folder_open, size: 16),
-                  label: const Text('Mappák…'),
+                  label: Text(tr('Mappák…')),
                   onPressed: onFolders,
                 ),
               ),
@@ -498,7 +498,7 @@ class _NoteList extends StatelessWidget {
                   padding: const EdgeInsets.only(right: 6),
                   child: ActionChip(
                     avatar: const Icon(Icons.clear, size: 16),
-                    label: const Text('Szűrők törlése'),
+                    label: Text(tr('Szűrők törlése')),
                     onPressed: () {
                       onFolder(null);
                       onTag(null);
@@ -533,7 +533,7 @@ class _NoteList extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(
-                    idx.notes.isEmpty ? 'Még nincs jegyzet. Írj egyet!' : 'Nincs találat.',
+                    idx.notes.isEmpty ? tr('Még nincs jegyzet. Írj egyet!') : tr('Nincs találat.'),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -601,44 +601,44 @@ class _NoteTreeState extends State<_NoteTree> {
         contentPadding: EdgeInsets.only(left: 8.0 + 16.0 * depth, right: 0),
         leading: Icon(open ? Icons.folder_open : Icons.folder_outlined, size: 20),
         title: Text(f.split('/').last, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text('${_count(f)} jegyzet'),
+        subtitle: Text(trf('%1 jegyzet', [_count(f)])),
         onTap: () => setState(() => open ? _open.remove(f) : _open.add(f)),
         trailing: PopupMenuButton<String>(
-          tooltip: 'Mappa műveletei',
+          tooltip: tr('Mappa műveletei'),
           onSelected: (v) async {
             switch (v) {
               case 'note':
                 setState(() => _open.add(f));
                 widget.onNewIn(f);
               case 'sub':
-                final n = await askFolderName(context, 'Új almappa a(z) „$f” alatt', '', hint: 'Mappa neve');
+                final n = await askFolderName(context, trf('Új almappa a(z) „%1” alatt', [f]), '', hint: tr('Mappa neve'));
                 if (n != null && n.trim().isNotEmpty) {
                   await state.createFolder('note', '$f/${AppState.cleanPath(n)}');
                   setState(() => _open.add(f));
                 }
               case 'rename':
-                final n = await askFolderName(context, 'Mappa átnevezése / áthelyezése', f);
+                final n = await askFolderName(context, tr('Mappa átnevezése / áthelyezése'), f);
                 if (n != null && n.trim().isNotEmpty) await state.renameFolder('note', f, n);
               case 'delete':
                 final ok = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
-                    title: Text('„$f” törlése'),
-                    content: const Text('A mappa megszűnik, a benne lévő jegyzetek a szülő-mappába kerülnek. Semmi sem törlődik.'),
+                    title: Text(trf('„%1” törlése', [f])),
+                    content: Text(tr('A mappa megszűnik, a benne lévő jegyzetek a szülő-mappába kerülnek. Semmi sem törlődik.')),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Mégse')),
-                      FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Mappa törlése')),
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Mégse'))),
+                      FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Mappa törlése'))),
                     ],
                   ),
                 );
                 if (ok == true) await state.deleteFolder('note', f);
             }
           },
-          itemBuilder: (_) => const [
-            PopupMenuItem(value: 'note', child: Text('Új jegyzet ebben')),
-            PopupMenuItem(value: 'sub', child: Text('Új almappa')),
-            PopupMenuItem(value: 'rename', child: Text('Átnevezés / áthelyezés')),
-            PopupMenuItem(value: 'delete', child: Text('Törlés')),
+          itemBuilder: (_) => [
+            PopupMenuItem(value: 'note', child: Text(tr('Új jegyzet ebben'))),
+            PopupMenuItem(value: 'sub', child: Text(tr('Új almappa'))),
+            PopupMenuItem(value: 'rename', child: Text(tr('Átnevezés / áthelyezés'))),
+            PopupMenuItem(value: 'delete', child: Text(tr('Törlés'))),
           ],
         ),
       ));
@@ -671,7 +671,7 @@ class _NoteTreeState extends State<_NoteTree> {
     }
     _lastSel = sel?.id;
     final children = _level('', 0);
-    if (children.isEmpty) return const Center(child: Text('Még nincs jegyzet.'));
+    if (children.isEmpty) return Center(child: Text(tr('Még nincs jegyzet.')));
     return ListView(padding: const EdgeInsets.all(8), children: children);
   }
 }
@@ -722,16 +722,16 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
           padding: const EdgeInsets.only(left: 12, right: 4),
           child: Row(children: [
             Expanded(
-              child: Text(lang.isEmpty ? 'kód' : lang, style: TextStyle(fontSize: 11, color: dark ? Colors.white60 : Colors.black54)),
+              child: Text(lang.isEmpty ? tr('kód') : lang, style: TextStyle(fontSize: 11, color: dark ? Colors.white60 : Colors.black54)),
             ),
             IconButton(
-              tooltip: 'Másolás',
+              tooltip: tr('Másolás'),
               visualDensity: VisualDensity.compact,
               iconSize: 16,
               icon: const Icon(Icons.copy_all_outlined),
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: code));
-                if (context.mounted) _toast(context, 'Kód a vágólapra másolva.');
+                if (context.mounted) _toast(context, tr('Kód a vágólapra másolva.'));
               },
             ),
           ]),
@@ -806,7 +806,7 @@ class _NoteEditorState extends State<NoteEditor> {
 
   void _touch() {
     _dirty = true;
-    _status = 'Szerkesztés…';
+    _status = tr('Szerkesztés…');
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 800), _save);
     if (mounted) setState(() {});
@@ -815,11 +815,11 @@ class _NoteEditorState extends State<NoteEditor> {
   Future<void> _save({bool silent = false}) async {
     _debounce?.cancel();
     final note = widget.note;
-    final newTitle = _title.text.trim().isEmpty ? 'Névtelen jegyzet' : _title.text.trim();
+    final newTitle = _title.text.trim().isEmpty ? tr('Névtelen jegyzet') : _title.text.trim();
     // Két jegyzetnek nem lehet ugyanaz a címe (a [[linkek]] cím alapján oldódnak fel).
     final clash = state.noteIndex.notes.any((n) => n.id != note.id && n.name.toLowerCase() == newTitle.toLowerCase());
     if (clash) {
-      if (!silent && mounted) setState(() => _status = 'Ilyen című jegyzet már van – válassz másik címet.');
+      if (!silent && mounted) setState(() => _status = tr('Ilyen című jegyzet már van – válassz másik címet.'));
       return;
     }
     note
@@ -831,7 +831,7 @@ class _NoteEditorState extends State<NoteEditor> {
       await state.saveNote(note, oldTitle: old);
       _savedTitle = newTitle;
       _dirty = false;
-      if (!silent && mounted) setState(() => _status = 'Mentve');
+      if (!silent && mounted) setState(() => _status = tr('Mentve'));
     } catch (e) {
       if (!silent && mounted) setState(() => _status = friendlyError(e));
     }
@@ -939,10 +939,10 @@ class _NoteEditorState extends State<NoteEditor> {
     final lang = await showDialog<String>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('Kódblokk nyelve'),
+        title: Text(tr('Kódblokk nyelve')),
         children: [
           for (final l in const ['', 'bash', 'python', 'javascript', 'json', 'go', 'sql', 'yaml', 'html', 'css', 'powershell'])
-            SimpleDialogOption(onPressed: () => Navigator.pop(ctx, l), child: Text(l.isEmpty ? 'Nincs (egyszerű)' : l)),
+            SimpleDialogOption(onPressed: () => Navigator.pop(ctx, l), child: Text(l.isEmpty ? tr('Nincs (egyszerű)') : l)),
         ],
       ),
     );
@@ -967,16 +967,16 @@ class _NoteEditorState extends State<NoteEditor> {
     final name = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Új mappa'),
+        title: Text(tr('Új mappa')),
         content: TextField(
           controller: c,
           autofocus: true,
-          decoration: const InputDecoration(hintText: 'pl. Munka/2026'),
+          decoration: InputDecoration(hintText: tr('pl. Munka/2026')),
           onSubmitted: (v) => Navigator.pop(ctx, v),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Mégse')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, c.text), child: const Text('Létrehozás')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Mégse'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, c.text), child: Text(tr('Létrehozás'))),
         ],
       ),
     );
@@ -1080,11 +1080,11 @@ class _NoteEditorState extends State<NoteEditor> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Jegyzet a kukába'),
-        content: Text('A(z) „${widget.note.name}” 30 napig a kukában marad, onnan visszaállítható.'),
+        title: Text(tr('Jegyzet a kukába')),
+        content: Text(trf('A(z) „%1” 30 napig a kukában marad, onnan visszaállítható.', [widget.note.name])),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Mégse')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Kukába')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Mégse'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Kukába'))),
         ],
       ),
     );
@@ -1109,11 +1109,11 @@ class _NoteEditorState extends State<NoteEditor> {
         final create = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: Text('„$target” még nem létezik'),
-            content: const Text('Létrehozod ezzel a címmel?'),
+            title: Text(trf('„%1” még nem létezik', [target])),
+            content: Text(tr('Létrehozod ezzel a címmel?')),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Mégse')),
-              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Létrehozás')),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Mégse'))),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Létrehozás'))),
             ],
           ),
         );
@@ -1137,7 +1137,7 @@ class _NoteEditorState extends State<NoteEditor> {
     final idx = state.noteIndex;
     final md = renderPrep(_body.text, idx);
     return Markdown(
-      data: md.isEmpty ? '*Üres jegyzet*' : md,
+      data: md.isEmpty ? tr('*Üres jegyzet*') : md,
       selectable: true,
       padding: const EdgeInsets.all(20),
       builders: {'code': _CodeBlockBuilder()},
@@ -1158,7 +1158,7 @@ class _NoteEditorState extends State<NoteEditor> {
             } catch (_) {}
           }
         }
-        return Text('[kép: ${alt ?? ''}]');
+        return Text(trf('[kép: %1]', [alt ?? '']));
       },
       styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
         a: TextStyle(color: p.accent, fontWeight: FontWeight.w600),
@@ -1197,8 +1197,8 @@ class _NoteEditorState extends State<NoteEditor> {
           style: _mode == _Mode.live
               ? const TextStyle(fontSize: 16, height: 1.55)
               : const TextStyle(fontFamily: 'monospace', height: 1.45),
-          decoration: const InputDecoration(
-            hintText: 'Írj ide… Markdown, [[hivatkozás]], #címke',
+          decoration: InputDecoration(
+            hintText: tr('Írj ide… Markdown, [[hivatkozás]], #címke'),
             border: InputBorder.none,
             contentPadding: EdgeInsets.all(20),
           ),
@@ -1239,7 +1239,7 @@ class _NoteEditorState extends State<NoteEditor> {
       child: Row(children: [
         if (!widget.wide)
           IconButton(
-            tooltip: 'Vissza',
+            tooltip: tr('Vissza'),
             icon: const Icon(Icons.arrow_back),
             onPressed: () async {
               await _save(silent: true);
@@ -1251,16 +1251,16 @@ class _NoteEditorState extends State<NoteEditor> {
             controller: _title,
             onChanged: (_) => _touch(),
             style: Theme.of(context).textTheme.titleLarge,
-            decoration: const InputDecoration(hintText: 'Cím', border: InputBorder.none),
+            decoration: InputDecoration(hintText: tr('Cím'), border: InputBorder.none),
           ),
         ),
         SegmentedButton<_Mode>(
           showSelectedIcon: false,
           style: const ButtonStyle(visualDensity: VisualDensity.compact),
           segments: [
-            const ButtonSegment(value: _Mode.live, icon: Icon(Icons.edit_outlined), tooltip: 'Szerkesztés (élő nézet)'),
-            const ButtonSegment(value: _Mode.source, icon: Icon(Icons.code), tooltip: 'Forrás (nyers markdown)'),
-            const ButtonSegment(value: _Mode.preview, icon: Icon(Icons.visibility_outlined), tooltip: 'Olvasás (linkek, képek)'),
+            ButtonSegment(value: _Mode.live, icon: Icon(Icons.edit_outlined), tooltip: tr('Szerkesztés (élő nézet)')),
+            ButtonSegment(value: _Mode.source, icon: Icon(Icons.code), tooltip: tr('Forrás (nyers markdown)')),
+            ButtonSegment(value: _Mode.preview, icon: Icon(Icons.visibility_outlined), tooltip: tr('Olvasás (linkek, képek)')),
           ],
           selected: {mode},
           onSelectionChanged: (s) async {
@@ -1270,7 +1270,7 @@ class _NoteEditorState extends State<NoteEditor> {
         ),
         if (!panelInline)
           IconButton(
-            tooltip: 'Kapcsolatok és vázlat',
+            tooltip: tr('Kapcsolatok és vázlat'),
             icon: const Icon(Icons.account_tree_outlined),
             onPressed: () => showModalBottomSheet<void>(
               context: context,
@@ -1289,12 +1289,12 @@ class _NoteEditorState extends State<NoteEditor> {
             if (v == 'delete') await _delete();
             if (v == 'copy') {
               await Clipboard.setData(ClipboardData(text: _body.text));
-              if (context.mounted) _toast(context, 'Markdown a vágólapra másolva.');
+              if (context.mounted) _toast(context, tr('Markdown a vágólapra másolva.'));
             }
           },
-          itemBuilder: (_) => const [
-            PopupMenuItem(value: 'copy', child: Text('Másolás markdownként')),
-            PopupMenuItem(value: 'delete', child: Text('Kukába')),
+          itemBuilder: (_) => [
+            PopupMenuItem(value: 'copy', child: Text(tr('Másolás markdownként'))),
+            PopupMenuItem(value: 'delete', child: Text(tr('Kukába'))),
           ],
         ),
       ]),
@@ -1311,11 +1311,11 @@ class _NoteEditorState extends State<NoteEditor> {
             controller: _folder,
             onChanged: (_) => _touch(),
             style: Theme.of(context).textTheme.bodySmall,
-            decoration: const InputDecoration(hintText: 'Mappa (pl. Munka/2026)', isDense: true, border: InputBorder.none),
+            decoration: InputDecoration(hintText: tr('Mappa (pl. Munka/2026)'), isDense: true, border: InputBorder.none),
           ),
         ),
         IconButton(
-          tooltip: 'Mappa kiválasztása',
+          tooltip: tr('Mappa kiválasztása'),
           visualDensity: VisualDensity.compact,
           icon: const Icon(Icons.drive_file_move_outline, size: 18),
           onPressed: () async {
@@ -1327,7 +1327,7 @@ class _NoteEditorState extends State<NoteEditor> {
           },
         ),
         IconButton(
-          tooltip: 'Új mappa',
+          tooltip: tr('Új mappa'),
           visualDensity: VisualDensity.compact,
           icon: const Icon(Icons.create_new_folder_outlined, size: 18),
           onPressed: _newFolder,
@@ -1343,17 +1343,17 @@ class _NoteEditorState extends State<NoteEditor> {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(children: [
-              _Tool(Icons.title, 'Fejléc', () => _linePrefix('## ')),
-              _Tool(Icons.format_bold, 'Félkövér', () => _wrap('**')),
-              _Tool(Icons.format_italic, 'Dőlt', () => _wrap('*')),
-              _Tool(Icons.code, 'Soron belüli kód', () => _wrap('`')),
-              _Tool(Icons.terminal, 'Kódblokk (nyelvvel)', _codeBlock),
-              _Tool(Icons.format_list_bulleted, 'Lista', () => _linePrefix('- ')),
-              _Tool(Icons.check_box_outlined, 'Teendő', () => _linePrefix('- [ ] ')),
-              _Tool(Icons.format_quote, 'Idézet', () => _linePrefix('> ')),
-              _Tool(Icons.link, 'Jegyzet-hivatkozás', () => _wrap('[[', ']]')),
-              _Tool(Icons.tag, 'Címke', () => _wrap('#', '')),
-              _Tool(Icons.image_outlined, 'Kép beszúrása', _insertImage),
+              _Tool(Icons.title, tr('Fejléc'), () => _linePrefix('## ')),
+              _Tool(Icons.format_bold, tr('Félkövér'), () => _wrap('**')),
+              _Tool(Icons.format_italic, tr('Dőlt'), () => _wrap('*')),
+              _Tool(Icons.code, tr('Soron belüli kód'), () => _wrap('`')),
+              _Tool(Icons.terminal, tr('Kódblokk (nyelvvel)'), _codeBlock),
+              _Tool(Icons.format_list_bulleted, tr('Lista'), () => _linePrefix('- ')),
+              _Tool(Icons.check_box_outlined, tr('Teendő'), () => _linePrefix('- [ ] ')),
+              _Tool(Icons.format_quote, tr('Idézet'), () => _linePrefix('> ')),
+              _Tool(Icons.link, tr('Jegyzet-hivatkozás'), () => _wrap('[[', ']]')),
+              _Tool(Icons.tag, tr('Címke'), () => _wrap('#', '')),
+              _Tool(Icons.image_outlined, tr('Kép beszúrása'), _insertImage),
             ]),
           );
 
@@ -1420,12 +1420,12 @@ class _InfoPanel extends StatelessWidget {
               onTap: () => onOpen(n.id),
             );
         return ListView(children: [
-          section('Visszahivatkozások (${back.length})', [for (final n in back) link(n)]),
+          section(trf('Visszahivatkozások (%1)', [back.length]), [for (final n in back) link(n)]),
           if (back.isEmpty)
-            const Padding(padding: EdgeInsets.all(16), child: Text('Még egy jegyzet sem hivatkozik erre.')),
-          section('Kimenő hivatkozások (${out.length})', [for (final n in out) link(n)]),
-          section('Nem linkelt említések (${unlinked.length})', [for (final n in unlinked) link(n)]),
-          section('Vázlat', [
+            Padding(padding: EdgeInsets.all(16), child: Text(tr('Még egy jegyzet sem hivatkozik erre.'))),
+          section(trf('Kimenő hivatkozások (%1)', [out.length]), [for (final n in out) link(n)]),
+          section(trf('Nem linkelt említések (%1)', [unlinked.length]), [for (final n in unlinked) link(n)]),
+          section(tr('Vázlat'), [
             for (final (level, text) in heads)
               Padding(
                 padding: EdgeInsets.fromLTRB(16.0 + (level - 1) * 12, 2, 16, 2),

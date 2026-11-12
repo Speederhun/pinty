@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pinty/i18n.dart';
 import 'package:pinty/models/vault_item.dart';
 import 'package:pinty/util/note_logic.dart';
 
@@ -6,6 +7,7 @@ VaultItem note(String id, String title, String body, {String folder = ''}) =>
     VaultItem(id: id, name: title, kind: ItemKind.note, notes: body, folder: folder);
 
 void main() {
+  setLang('hu');
   test('wikilinkek kinyerése: álnév, fejezet, beágyazás, kód kihagyása', () {
     final l = extractLinks('Lásd [[Alfa]], [[Béta#Fej|álnév]] és ![[kep.png]].\n`[[kod]]`\n```\n[[blokk]]\n```');
     expect(l.map((e) => e.target), ['Alfa', 'Béta', 'kep.png']);

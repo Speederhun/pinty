@@ -1,14 +1,24 @@
 import 'package:flutter/material.dart';
+import '../i18n.dart';
 
-/// A négy beépített téma (az előképen látottak szerint).
-enum PintyThemeId { light, dark, ocean, rose }
+/// A beépített témák.
+enum PintyThemeId { light, dark, ocean, rose, sepia, solarized, lavender, sunset, midnight, forest, nord, dracula, amoled }
 
 extension PintyThemeLabel on PintyThemeId {
   String get label => switch (this) {
-        PintyThemeId.light => 'Világos',
-        PintyThemeId.dark => 'Sötét',
-        PintyThemeId.ocean => 'Óceán',
-        PintyThemeId.rose => 'Rózsa',
+        PintyThemeId.light => tr('Világos'),
+        PintyThemeId.dark => tr('Sötét'),
+        PintyThemeId.ocean => tr('Óceán'),
+        PintyThemeId.rose => tr('Rózsa'),
+        PintyThemeId.sepia => tr('Szépia'),
+        PintyThemeId.solarized => 'Solarized',
+        PintyThemeId.lavender => tr('Levendula'),
+        PintyThemeId.sunset => tr('Naplemente'),
+        PintyThemeId.midnight => tr('Éjkék'),
+        PintyThemeId.forest => tr('Erdő'),
+        PintyThemeId.nord => 'Nord',
+        PintyThemeId.dracula => 'Dracula',
+        PintyThemeId.amoled => tr('AMOLED fekete'),
       };
 }
 
@@ -54,6 +64,60 @@ const pintyPalettes = <PintyThemeId, PintyPalette>{
     text: Color(0xFF2A1B1B), muted: Color(0xFF735A58), chip: Color(0xFFF5E6E4),
     chipText: Color(0xFF6B1F2E), side: Color(0xFF4A1F2B), accent: Color(0xFFA3304A),
     brightness: Brightness.light,
+  ),
+  PintyThemeId.sepia: PintyPalette(
+    bg: Color(0xFFF3EAD7), card: Color(0xFFFBF5E6), line: Color(0xFFE0D3B8),
+    text: Color(0xFF3B2F1E), muted: Color(0xFF7A6A4F), chip: Color(0xFFEDE2C8),
+    chipText: Color(0xFF5A3E12), side: Color(0xFF4A3A22), accent: Color(0xFF9A5B13),
+    brightness: Brightness.light,
+  ),
+  PintyThemeId.solarized: PintyPalette(
+    bg: Color(0xFFFDF6E3), card: Color(0xFFFFFBEF), line: Color(0xFFE6DDC3),
+    text: Color(0xFF073642), muted: Color(0xFF657B83), chip: Color(0xFFEEE8D5),
+    chipText: Color(0xFF073642), side: Color(0xFF073642), accent: Color(0xFF268BD2),
+    brightness: Brightness.light,
+  ),
+  PintyThemeId.lavender: PintyPalette(
+    bg: Color(0xFFF3F0FA), card: Color(0xFFFFFFFF), line: Color(0xFFE0D9F0),
+    text: Color(0xFF21192F), muted: Color(0xFF6B6285), chip: Color(0xFFEAE4F7),
+    chipText: Color(0xFF3F2A78), side: Color(0xFF2E2150), accent: Color(0xFF6B4FD1),
+    brightness: Brightness.light,
+  ),
+  PintyThemeId.sunset: PintyPalette(
+    bg: Color(0xFFFBF1EA), card: Color(0xFFFFFFFF), line: Color(0xFFF0DACB),
+    text: Color(0xFF2B1A12), muted: Color(0xFF7C5E4C), chip: Color(0xFFF8E6DA),
+    chipText: Color(0xFF7A2E0E), side: Color(0xFF5A2410), accent: Color(0xFFD2561E),
+    brightness: Brightness.light,
+  ),
+  PintyThemeId.midnight: PintyPalette(
+    bg: Color(0xFF0B1020), card: Color(0xFF141B30), line: Color(0xFF232C47),
+    text: Color(0xFFE6EAF6), muted: Color(0xFF93A0C4), chip: Color(0xFF1C2542),
+    chipText: Color(0xFFBFCBFF), side: Color(0xFF070B16), accent: Color(0xFF4F7CFF),
+    brightness: Brightness.dark,
+  ),
+  PintyThemeId.forest: PintyPalette(
+    bg: Color(0xFF0F1A14), card: Color(0xFF16251D), line: Color(0xFF24382C),
+    text: Color(0xFFE4F0E8), muted: Color(0xFF92AE9C), chip: Color(0xFF1F3329),
+    chipText: Color(0xFFBDE8CC), side: Color(0xFF09110C), accent: Color(0xFF3FA66B),
+    brightness: Brightness.dark,
+  ),
+  PintyThemeId.nord: PintyPalette(
+    bg: Color(0xFF2E3440), card: Color(0xFF3B4252), line: Color(0xFF4C566A),
+    text: Color(0xFFECEFF4), muted: Color(0xFFA6B0C3), chip: Color(0xFF434C5E),
+    chipText: Color(0xFF88C0D0), side: Color(0xFF242933), accent: Color(0xFF81A1C1),
+    brightness: Brightness.dark,
+  ),
+  PintyThemeId.dracula: PintyPalette(
+    bg: Color(0xFF282A36), card: Color(0xFF343746), line: Color(0xFF44475A),
+    text: Color(0xFFF8F8F2), muted: Color(0xFFA0A4C0), chip: Color(0xFF3C3F52),
+    chipText: Color(0xFFBD93F9), side: Color(0xFF1E1F29), accent: Color(0xFF9D6BF0),
+    brightness: Brightness.dark,
+  ),
+  PintyThemeId.amoled: PintyPalette(
+    bg: Color(0xFF000000), card: Color(0xFF0E0E0E), line: Color(0xFF222222),
+    text: Color(0xFFEDEDED), muted: Color(0xFF9A9A9A), chip: Color(0xFF1A1A1A),
+    chipText: Color(0xFFD0D0D0), side: Color(0xFF000000), accent: Color(0xFF2AA198),
+    brightness: Brightness.dark,
   ),
 };
 

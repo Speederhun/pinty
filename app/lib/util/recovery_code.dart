@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'totp.dart' show base32Decode;
+import '../i18n.dart';
 
 const _alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
@@ -26,6 +27,6 @@ String formatRecoveryKey(Uint8List bytes) {
 /// A kézzel beírt kód visszaalakítása (kisbetű, szóköz és kötőjel mindegy). Hibás kódnál FormatException.
 Uint8List parseRecoveryKey(String input) {
   final bytes = base32Decode(input);
-  if (bytes.length != 32) throw const FormatException('A visszaállító kulcs 52 karakteres.');
+  if (bytes.length != 32) throw FormatException(tr('A visszaállító kulcs 52 karakteres.'));
   return bytes;
 }

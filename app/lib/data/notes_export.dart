@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../i18n.dart';
 import '../models/vault_item.dart';
 
 /// Jegyzetek exportja titkosítatlan zip-be: minden jegyzet egy `.md` fájl a mappája szerint,
@@ -26,7 +27,7 @@ Uint8List exportNotesZip(Iterable<VaultItem> notes, Iterable<VaultItem> files) {
     if (n.inTrash) continue;
     final folder = n.folder.split('/').map(safeName).where((s) => s.isNotEmpty).join('/');
     final title = safeName(n.name);
-    final path = unique('${folder.isEmpty ? '' : '$folder/'}${title.isEmpty ? 'Névtelen' : title}.md');
+    final path = unique('${folder.isEmpty ? '' : '$folder/'}${title.isEmpty ? tr('Névtelen') : title}.md');
     entries.add((path, Uint8List.fromList(utf8.encode(n.notes))));
   }
   for (final f in files) {

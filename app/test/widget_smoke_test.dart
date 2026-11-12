@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pinty/i18n.dart';
 import 'package:pinty/app_state.dart';
 import 'package:pinty/data/local_store.dart';
 import 'package:pinty/data/vault_repository.dart';
@@ -6,6 +7,7 @@ import 'package:pinty/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setLang('hu');
   testWidgets('első indításkor a fiók létrehozása képernyő látszik', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final repo = VaultRepository(

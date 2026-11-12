@@ -1,4 +1,5 @@
 import 'dart:math';
+import '../i18n.dart';
 
 class PasswordOptions {
   const PasswordOptions({
@@ -40,8 +41,8 @@ String generatePassword(PasswordOptions o, {Random? random}) {
     if (o.digits) _digitSet,
     if (o.symbols) _symbolSet,
   ];
-  if (sets.isEmpty) throw ArgumentError('Legalább egy karaktercsoportot be kell kapcsolni.');
-  if (o.length < sets.length) throw ArgumentError('Túl rövid jelszó a kiválasztott csoportokhoz.');
+  if (sets.isEmpty) throw ArgumentError(tr('Legalább egy karaktercsoportot be kell kapcsolni.'));
+  if (o.length < sets.length) throw ArgumentError(tr('Túl rövid jelszó a kiválasztott csoportokhoz.'));
 
   final all = sets.join();
   final chars = <String>[

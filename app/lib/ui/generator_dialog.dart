@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../util/password_generator.dart';
+import '../i18n.dart';
 
 /// Jelszógenerátor; a kiválasztott jelszót adja vissza, vagy null-t, ha mégsem kell.
 Future<String?> showGeneratorDialog(BuildContext context) {
@@ -30,7 +31,7 @@ class _GeneratorDialogState extends State<_GeneratorDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Jelszó generálása'),
+      title: Text(tr('Jelszó generálása')),
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
@@ -47,7 +48,7 @@ class _GeneratorDialogState extends State<_GeneratorDialog> {
               ),
             ),
             const SizedBox(height: 12),
-            Text('Hossz: ${_o.length}'),
+            Text(trf('Hossz: %1', [_o.length])),
             Slider(
               min: 8,
               max: 64,
@@ -58,25 +59,25 @@ class _GeneratorDialogState extends State<_GeneratorDialog> {
             ),
             SwitchListTile(
               dense: true,
-              title: const Text('Kisbetűk'),
+              title: Text(tr('Kisbetűk')),
               value: _o.lower,
               onChanged: (v) => _update(_o.copyWith(lower: v)),
             ),
             SwitchListTile(
               dense: true,
-              title: const Text('Nagybetűk'),
+              title: Text(tr('Nagybetűk')),
               value: _o.upper,
               onChanged: (v) => _update(_o.copyWith(upper: v)),
             ),
             SwitchListTile(
               dense: true,
-              title: const Text('Számok'),
+              title: Text(tr('Számok')),
               value: _o.digits,
               onChanged: (v) => _update(_o.copyWith(digits: v)),
             ),
             SwitchListTile(
               dense: true,
-              title: const Text('Szimbólumok'),
+              title: Text(tr('Szimbólumok')),
               value: _o.symbols,
               onChanged: (v) => _update(_o.copyWith(symbols: v)),
             ),
@@ -84,9 +85,9 @@ class _GeneratorDialogState extends State<_GeneratorDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Mégse')),
-        TextButton(onPressed: () => _update(_o), child: const Text('Új')),
-        FilledButton(onPressed: () => Navigator.pop(context, _password), child: const Text('Használom')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Mégse'))),
+        TextButton(onPressed: () => _update(_o), child: Text(tr('Új'))),
+        FilledButton(onPressed: () => Navigator.pop(context, _password), child: Text(tr('Használom'))),
       ],
     );
   }

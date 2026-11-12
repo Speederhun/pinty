@@ -1,9 +1,11 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pinty/i18n.dart';
 import 'package:pinty/crypto/vault_crypto.dart';
 
 void main() {
+  setLang('hu');
   // Gyors paraméterekkel, hogy a teszt ne tartson sokáig.
   final kdf = KdfParams(
     salt: Uint8List.fromList(List.generate(16, (i) => i)),

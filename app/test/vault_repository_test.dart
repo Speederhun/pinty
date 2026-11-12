@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pinty/i18n.dart';
 import 'package:pinty/crypto/vault_crypto.dart';
 import 'package:pinty/data/local_store.dart';
 import 'package:pinty/data/vault_repository.dart';
@@ -38,6 +39,7 @@ Future<VaultRepository> _connected(FakeServer server) async {
 }
 
 void main() {
+  setLang('hu');
   test('szinkron után a szerveren csak titkosított adat van', () async {
     final server = FakeServer();
     final a = await _registered(server);

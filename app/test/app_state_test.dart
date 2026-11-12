@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pinty/i18n.dart';
 import 'package:pinty/app_state.dart';
 import 'package:pinty/crypto/vault_crypto.dart';
 import 'package:pinty/data/local_store.dart';
@@ -48,6 +49,7 @@ Future<AppState> _app(FakeServer server, {UnlockHelper? unlock}) async {
 }
 
 void main() {
+  setLang('hu');
   test('mappák: létrehozás, átnevezés, áthelyezés, törlés (semmi sem vész el)', () async {
     final s = await _app(FakeServer());
     await s.newNote(title: 'Terv', folder: 'Munka/2026', body: 'x');

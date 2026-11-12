@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import '../models/vault_item.dart';
+import '../i18n.dart';
 
 /// Egy [[hivatkozás]] a jegyzet szövegében.
 class WikiLink {
@@ -126,7 +127,7 @@ String renderPrep(String body, NoteIndex index) {
       if (m.group(1) == '!') {
         final f = index.fileByName(target);
         return f == null
-            ? '*[hiányzó kép: ${_esc(target)}]*'
+            ? trf('*[hiányzó kép: %1]*', [_esc(target)])
             : '![${_esc(alias.isEmpty ? target : alias)}]($fileScheme:${f.id})';
       }
       final label = alias.isNotEmpty ? alias : (hash >= 0 ? inner.trim() : target);

@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../crypto/vault_crypto.dart';
 import '../models/vault_item.dart';
 import '../util/totp.dart' show extractTotpSecret;
+import '../i18n.dart';
 
 class BackupException implements Exception {
   BackupException(this.message);
@@ -21,7 +22,7 @@ class Backup {
 
   /// Csak az "élő" elemeket menti (kuka nélkül): jelszavak, jegyzetek, mappák, csatolt képek.
   static Future<Uint8List> export(Iterable<VaultItem> items, String password, {KdfParams? kdf}) async {
-    if (password.length < 8) throw BackupException('A mentés jelszava legalább 8 karakter legyen.');
+    if (password.length < 8) throw BackupException(tr('A mentés jelszava legalább 8 karakter legyen.'));
     final params = kdf ?? KdfParams(salt: VaultCrypto.randomBytes(16));
     final key = await VaultCrypto.deriveBackupKeyAsync(password, params);
     final payload = jsonEncode({
@@ -37,25 +38,25 @@ class Backup {
     try {
       env = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
     } catch (_) {
-      throw BackupException('Ez nem Pinty-mentés.');
+      throw BackupException(tr('Ez nem Pinty-mentés.'));
     }
-    if (env['format'] != format) throw BackupException('Ez nem Pinty-mentés.');
+    if (env['format'] != format) throw BackupException(tr('Ez nem Pinty-mentés.'));
     final KdfParams kdf;
     try {
       kdf = KdfParams.fromJson(env['kdf'] as Map<String, dynamic>);
     } catch (_) {
-      throw BackupException('A mentés sérült.');
+      throw BackupException(tr('A mentés sérült.'));
     }
     // védelem a rosszindulatú, irreálisan nagy paraméterek ellen
     if (kdf.memoryKiB > 1 << 20 || kdf.iterations > 20 || kdf.parallelism > 16) {
-      throw BackupException('A mentés paraméterei érvénytelenek.');
+      throw BackupException(tr('A mentés paraméterei érvénytelenek.'));
     }
     final key = await VaultCrypto.deriveBackupKeyAsync(password, kdf);
     final List<int> plain;
     try {
       plain = await VaultCrypto.decryptBytes(env['blob'] as String, key, aad: utf8.encode(format));
     } catch (_) {
-      throw BackupException('Hibás jelszó, vagy sérült mentés.');
+      throw BackupException(tr('Hibás jelszó, vagy sérült mentés.'));
     }
     final data = jsonDecode(utf8.decode(plain)) as Map<String, dynamic>;
     return [
@@ -149,7 +150,7 @@ class ImportResult {
 /// Chrome, Edge, Firefox, Bitwarden, 1Password, LastPass és hasonló CSV-k felismerése fejléc alapján.
 ImportResult importCsv(String text) {
   final rows = parseCsv(text);
-  if (rows.length < 2) throw BackupException('Üres vagy érvénytelen CSV.');
+  if (rows.length < 2) throw BackupException(tr('Üres vagy érvénytelen CSV.'));
   final header = [for (final h in rows.first) h.trim().toLowerCase()];
 
   int col(List<String> names) {
@@ -169,7 +170,7 @@ ImportResult importCsv(String text) {
   final cFolder = col(['folder', 'grouping', 'group']);
   final cFav = col(['favorite', 'fav']);
   final cType = col(['type']);
-  if (cPass < 0 && cNotes < 0) throw BackupException('Nem ismerem fel a CSV oszlopait (nincs jelszó vagy jegyzet oszlop).');
+  if (cPass < 0 && cNotes < 0) throw BackupException(tr('Nem ismerem fel a CSV oszlopait (nincs jelszó vagy jegyzet oszlop).'));
 
   String at(List<String> r, int c) => c >= 0 && c < r.length ? r[c].trim() : '';
 
@@ -190,7 +191,7 @@ ImportResult importCsv(String text) {
     final isNote = type == 'securenote' || type == 'note' || (pass.isEmpty && at(r, cUser).isEmpty && url.isEmpty);
     out.add(VaultItem(
       id: const Uuid().v4(),
-      name: name.isEmpty ? 'Névtelen' : name,
+      name: name.isEmpty ? tr('Névtelen') : name,
       kind: isNote ? ItemKind.note : ItemKind.login,
       username: at(r, cUser),
       password: pass,
@@ -210,9 +211,9 @@ ImportResult importBitwardenJson(String text) {
   try {
     root = jsonDecode(text) as Map<String, dynamic>;
   } catch (_) {
-    throw BackupException('Érvénytelen JSON.');
+    throw BackupException(tr('Érvénytelen JSON.'));
   }
-  if (root['encrypted'] == true) throw BackupException('A titkosított Bitwarden-exportot nem tudom beolvasni. Exportálj titkosítatlan JSON-t.');
+  if (root['encrypted'] == true) throw BackupException(tr('A titkosított Bitwarden-exportot nem tudom beolvasni. Exportálj titkosítatlan JSON-t.'));
   final folders = {
     for (final f in (root['folders'] as List? ?? const []))
       if (f is Map<String, dynamic>) f['id']: (f['name'] as String?) ?? ''
@@ -226,7 +227,7 @@ ImportResult importBitwardenJson(String text) {
     }
     final type = raw['type'];
     final folder = folders[raw['folderId']] ?? '';
-    final name = (raw['name'] as String?) ?? 'Névtelen';
+    final name = (raw['name'] as String?) ?? tr('Névtelen');
     final notes = (raw['notes'] as String?) ?? '';
     final fav = raw['favorite'] == true;
     if (type == 1) {

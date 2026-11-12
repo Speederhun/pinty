@@ -10,6 +10,7 @@ import '../data/backup.dart';
 import '../models/vault_item.dart';
 import '../theme/pinty_theme.dart';
 import '../util/security_audit.dart';
+import '../i18n.dart';
 
 void _toast(BuildContext context, String msg) {
   ScaffoldMessenger.of(context)
@@ -31,10 +32,10 @@ Future<String?> _askPassword(BuildContext context, String title, String message,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Text(message),
             const SizedBox(height: 12),
-            TextField(controller: a, obscureText: true, autofocus: true, decoration: const InputDecoration(labelText: 'Jelszó')),
+            TextField(controller: a, obscureText: true, autofocus: true, decoration: InputDecoration(labelText: tr('Jelszó'))),
             if (confirm) ...[
               const SizedBox(height: 12),
-              TextField(controller: b, obscureText: true, decoration: const InputDecoration(labelText: 'Jelszó újra')),
+              TextField(controller: b, obscureText: true, decoration: InputDecoration(labelText: tr('Jelszó újra'))),
             ],
             if (err != null) ...[
               const SizedBox(height: 8),
@@ -43,18 +44,18 @@ Future<String?> _askPassword(BuildContext context, String title, String message,
           ]),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Mégse')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Mégse'))),
           FilledButton(
             onPressed: () {
               if (a.text.length < 8) {
-                setS(() => err = 'Legalább 8 karakter legyen.');
+                setS(() => err = tr('Legalább 8 karakter legyen.'));
               } else if (confirm && a.text != b.text) {
-                setS(() => err = 'A két jelszó nem egyezik.');
+                setS(() => err = tr('A két jelszó nem egyezik.'));
               } else {
                 Navigator.pop(ctx, a.text);
               }
             },
-            child: const Text('Tovább'),
+            child: Text(tr('Tovább')),
           ),
         ],
       ),
@@ -63,7 +64,7 @@ Future<String?> _askPassword(BuildContext context, String title, String message,
 }
 
 Future<bool> _saveBytes(String name, Uint8List bytes) async {
-  final path = await FilePicker.platform.saveFile(dialogTitle: 'Mentés', fileName: name, bytes: bytes);
+  final path = await FilePicker.platform.saveFile(dialogTitle: tr('Mentés'), fileName: name, bytes: bytes);
   if (path == null) return false;
   if (!Platform.isAndroid && !Platform.isIOS) await File(path).writeAsBytes(bytes);
   return true;
@@ -78,7 +79,7 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = pintyPalettes[state.theme]!;
     return Scaffold(
-      appBar: AppBar(title: const Text('Beállítások'), backgroundColor: p.bg),
+      appBar: AppBar(title: Text(tr('Beállítások')), backgroundColor: p.bg),
       body: ListenableBuilder(
         listenable: state,
         builder: (context, _) => ListView(
@@ -88,16 +89,16 @@ class SettingsPage extends StatelessWidget {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 640),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  _section(context, 'Fiók', [
+                  _section(context, tr('Fiók'), [
                     ListTile(title: const Text('E-mail'), subtitle: Text(state.email)),
-                    ListTile(title: const Text('Szerver'), subtitle: Text(state.serverUrl)),
-                    ListTile(title: const Text('Szinkron'), subtitle: Text(state.syncStatus ?? '–')),
+                    ListTile(title: Text(tr('Szerver')), subtitle: Text(state.serverUrl)),
+                    ListTile(title: Text(tr('Szinkron')), subtitle: Text(state.syncStatus ?? '–')),
                   ]),
-                  _section(context, 'Biztonság', [
+                  _section(context, tr('Biztonság'), [
                     if (state.biometricAvailable)
                       SwitchListTile(
-                        title: const Text('Biometrikus feloldás'),
-                        subtitle: const Text('Ujjlenyomat, arc vagy eszköz-PIN a mesterjelszó helyett. A kulcsot az operációs rendszer tárolója őrzi.'),
+                        title: Text(tr('Biometrikus feloldás')),
+                        subtitle: Text(tr('Ujjlenyomat, arc vagy eszköz-PIN a mesterjelszó helyett. A kulcsot az operációs rendszer tárolója őrzi.')),
                         value: state.biometricEnabled,
                         onChanged: (v) async {
                           if (v) {
@@ -110,49 +111,61 @@ class SettingsPage extends StatelessWidget {
                       ),
                     ListTile(
                       leading: const Icon(Icons.password),
-                      title: const Text('Mesterjelszó cseréje'),
+                      title: Text(tr('Mesterjelszó cseréje')),
                       onTap: () => _changePassword(context),
                     ),
                     ListTile(
                       leading: const Icon(Icons.key),
-                      title: const Text('Visszaállító kulcs'),
-                      subtitle: const Text('Ha elfelejted a mesterjelszót, ezzel még hozzáférsz a széfhez.'),
+                      title: Text(tr('Visszaállító kulcs')),
+                      subtitle: Text(tr('Ha elfelejted a mesterjelszót, ezzel még hozzáférsz a széfhez.')),
                       onTap: () => showRecoverySetup(context, state),
                     ),
                     ListTile(
                       leading: const Icon(Icons.shield_outlined),
-                      title: const Text('Biztonsági ellenőrzés'),
-                      subtitle: const Text('Gyenge, ismétlődő és régi jelszavak'),
+                      title: Text(tr('Biztonsági ellenőrzés')),
+                      subtitle: Text(tr('Gyenge, ismétlődő és régi jelszavak')),
                       onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => AuditPage(state: state))),
                     ),
                   ]),
-                  _section(context, 'Adatok', [
+                  _section(context, tr('Adatok'), [
                     ListTile(
                       leading: const Icon(Icons.delete_outline),
-                      title: const Text('Kuka'),
-                      subtitle: Text('${state.trashed.length} elem · 30 nap után véglegesen törlődik'),
+                      title: Text(tr('Kuka')),
+                      subtitle: Text(trf('%1 elem · 30 nap után véglegesen törlődik', [state.trashed.length])),
                       onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => TrashPage(state: state))),
                     ),
                     ListTile(
                       leading: const Icon(Icons.file_download_outlined),
-                      title: const Text('Titkosított mentés exportálása'),
-                      subtitle: const Text('Minden jelszó, jegyzet és kép egy jelszóval védett fájlban.'),
+                      title: Text(tr('Titkosított mentés exportálása')),
+                      subtitle: Text(tr('Minden jelszó, jegyzet és kép egy jelszóval védett fájlban.')),
                       onTap: () => _exportBackup(context),
                     ),
                     ListTile(
                       leading: const Icon(Icons.table_chart_outlined),
-                      title: const Text('Jelszavak exportálása CSV-be'),
-                      subtitle: const Text('Titkosítatlan! Csak más programba költözéshez.'),
+                      title: Text(tr('Jelszavak exportálása CSV-be')),
+                      subtitle: Text(tr('Titkosítatlan! Csak más programba költözéshez.')),
                       onTap: () => _exportCsv(context),
                     ),
                     ListTile(
                       leading: const Icon(Icons.file_upload_outlined),
-                      title: const Text('Importálás'),
-                      subtitle: const Text('Pinty-mentés, Chrome/Firefox/Bitwarden/1Password CSV, Bitwarden JSON'),
+                      title: Text(tr('Importálás')),
+                      subtitle: Text(tr('Pinty-mentés, Chrome/Firefox/Bitwarden/1Password CSV, Bitwarden JSON')),
                       onTap: () => _import(context),
                     ),
                   ]),
-                  _section(context, 'Megjelenés', [
+                  _section(context, tr('Megjelenés'), [
+                    ListTile(
+                      title: Text(tr('Nyelv')),
+                      trailing: SegmentedButton<String>(
+                        showSelectedIcon: false,
+                        segments: const [
+                          ButtonSegment(value: 'en', label: Text('English')),
+                          ButtonSegment(value: 'hu', label: Text('Magyar')),
+                        ],
+                        selected: {state.lang},
+                        onSelectionChanged: (s) => state.setLanguage(s.first),
+                      ),
+                    ),
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: Wrap(spacing: 8, children: [
@@ -162,7 +175,7 @@ class SettingsPage extends StatelessWidget {
                     ),
                   ]),
                   const SizedBox(height: 8),
-                  OutlinedButton.icon(onPressed: state.lock, icon: const Icon(Icons.lock_outline), label: const Text('Zárolás most')),
+                  OutlinedButton.icon(onPressed: state.lock, icon: const Icon(Icons.lock_outline), label: Text(tr('Zárolás most'))),
                 ]),
               ),
             ),
@@ -192,33 +205,33 @@ class SettingsPage extends StatelessWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) => AlertDialog(
-          title: const Text('Mesterjelszó cseréje'),
+          title: Text(tr('Mesterjelszó cseréje')),
           content: SizedBox(
             width: 400,
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextField(controller: old, obscureText: true, autofocus: true, decoration: const InputDecoration(labelText: 'Jelenlegi mesterjelszó')),
+              TextField(controller: old, obscureText: true, autofocus: true, decoration: InputDecoration(labelText: tr('Jelenlegi mesterjelszó'))),
               const SizedBox(height: 12),
-              TextField(controller: n1, obscureText: true, decoration: const InputDecoration(labelText: 'Új mesterjelszó (legalább 12 karakter)')),
+              TextField(controller: n1, obscureText: true, decoration: InputDecoration(labelText: tr('Új mesterjelszó (legalább 12 karakter)'))),
               const SizedBox(height: 12),
-              TextField(controller: n2, obscureText: true, decoration: const InputDecoration(labelText: 'Új mesterjelszó újra')),
+              TextField(controller: n2, obscureText: true, decoration: InputDecoration(labelText: tr('Új mesterjelszó újra'))),
               if (err != null) ...[
                 const SizedBox(height: 8),
                 Text(err!, style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
               ],
               const SizedBox(height: 8),
-              const Text('Más eszközökön újra be kell majd jelentkezned az új jelszóval.', style: TextStyle(fontSize: 12)),
+              Text(tr('Más eszközökön újra be kell majd jelentkezned az új jelszóval.'), style: TextStyle(fontSize: 12)),
             ]),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Mégse')),
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Mégse'))),
             FilledButton(
               onPressed: () async {
                 if (n1.text.length < 12) {
-                  setS(() => err = 'Az új mesterjelszó legyen legalább 12 karakter.');
+                  setS(() => err = tr('Az új mesterjelszó legyen legalább 12 karakter.'));
                   return;
                 }
                 if (n1.text != n2.text) {
-                  setS(() => err = 'A két új jelszó nem egyezik.');
+                  setS(() => err = tr('A két új jelszó nem egyezik.'));
                   return;
                 }
                 final ok = await state.changeMasterPassword(old.text, n1.text);
@@ -228,20 +241,20 @@ class SettingsPage extends StatelessWidget {
                   setS(() => err = state.error);
                 }
               },
-              child: const Text('Csere'),
+              child: Text(tr('Csere')),
             ),
           ],
         ),
       ),
     );
-    if (done == true && context.mounted) _toast(context, 'A mesterjelszó megváltozott.');
+    if (done == true && context.mounted) _toast(context, tr('A mesterjelszó megváltozott.'));
   }
 
   Future<void> _exportBackup(BuildContext context) async {
     final pw = await _askPassword(
       context,
-      'Titkosított mentés',
-      'Add meg a mentés jelszavát. Ez nem azonos a mesterjelszóval, és nélküle a mentés nem nyitható meg.',
+      tr('Titkosított mentés'),
+      tr('Add meg a mentés jelszavát. Ez nem azonos a mesterjelszóval, és nélküle a mentés nem nyitható meg.'),
       confirm: true,
     );
     if (pw == null) return;
@@ -249,7 +262,7 @@ class SettingsPage extends StatelessWidget {
       final bytes = await state.exportBackup(pw);
       final stamp = DateTime.now().toIso8601String().substring(0, 10);
       final ok = await _saveBytes('pinty-mentes-$stamp.pintybackup', bytes);
-      if (context.mounted && ok) _toast(context, 'A mentés elkészült.');
+      if (context.mounted && ok) _toast(context, tr('A mentés elkészült.'));
     } catch (e) {
       if (context.mounted) _toast(context, friendlyError(e));
     }
@@ -259,17 +272,17 @@ class SettingsPage extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Titkosítatlan export'),
-        content: const Text('A CSV fájlban a jelszavaid olvasható szövegként szerepelnek. Használat után töröld, és ne tárold felhőben.'),
+        title: Text(tr('Titkosítatlan export')),
+        content: Text(tr('A CSV fájlban a jelszavaid olvasható szövegként szerepelnek. Használat után töröld, és ne tárold felhőben.')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Mégse')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Exportálás')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Mégse'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Exportálás'))),
         ],
       ),
     );
     if (ok != true) return;
     final saved = await _saveBytes('pinty-jelszavak.csv', Uint8List.fromList(utf8.encode(state.exportCsvText())));
-    if (context.mounted && saved) _toast(context, 'A CSV elkészült. Ne felejtsd el törölni használat után.');
+    if (context.mounted && saved) _toast(context, tr('A CSV elkészült. Ne felejtsd el törölni használat után.'));
   }
 
   Future<void> _import(BuildContext context) async {
@@ -286,7 +299,7 @@ class SettingsPage extends StatelessWidget {
       final head = utf8.decode(f.bytes!, allowMalformed: true);
       if (head.contains('"format":"pinty-backup"') || head.contains('"format": "pinty-backup"')) {
         if (!context.mounted) return;
-        final pw = await _askPassword(context, 'Mentés megnyitása', 'Add meg a mentés jelszavát.');
+        final pw = await _askPassword(context, tr('Mentés megnyitása'), tr('Add meg a mentés jelszavát.'));
         if (pw == null) return;
         items = await Backup.import(f.bytes!, pw);
       } else if (f.name.toLowerCase().endsWith('.csv')) {
@@ -300,7 +313,7 @@ class SettingsPage extends StatelessWidget {
       }
       final (added, dup) = await state.importItems(items);
       if (context.mounted) {
-        _toast(context, '$added elem importálva${dup + skipped > 0 ? ', ${dup + skipped} kihagyva (már megvan vagy nem támogatott)' : ''}.');
+        _toast(context, trf('%1 elem importálva%2.', [added, dup + skipped > 0 ? trf(', %1 kihagyva (már megvan vagy nem támogatott)', [dup + skipped]) : '']));
       }
     } catch (e) {
       if (context.mounted) _toast(context, e is BackupException ? e.message : friendlyError(e));
@@ -315,16 +328,15 @@ Future<void> showRecoverySetup(BuildContext context, AppState state) async {
   final go = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('Visszaállító kulcs'),
+      title: Text(tr('Visszaállító kulcs')),
       content: Text(
         enabled
-            ? 'Már van visszaállító kulcsod. Újat készíthetsz, de akkor a régi érvénytelen lesz.'
-            : 'A mesterjelszót elfelejtve a széf nem nyitható meg, mert a szerver sem ismeri. A visszaállító kulcs ezt kerüli meg: '
-                'írd fel papírra, és tárold biztonságos helyen (nem a telefonban vagy felhőben).',
+            ? tr('Már van visszaállító kulcsod. Újat készíthetsz, de akkor a régi érvénytelen lesz.')
+            : tr('A mesterjelszót elfelejtve a széf nem nyitható meg, mert a szerver sem ismeri. A visszaállító kulcs ezt kerüli meg: írd fel papírra, és tárold biztonságos helyen (nem a telefonban vagy felhőben).'),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Később')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(enabled ? 'Új kulcs készítése' : 'Kulcs készítése')),
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Később'))),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(enabled ? tr('Új kulcs készítése') : tr('Kulcs készítése'))),
       ],
     ),
   );
@@ -332,31 +344,31 @@ Future<void> showRecoverySetup(BuildContext context, AppState state) async {
   final key = await state.createRecoveryKey();
   if (!context.mounted) return;
   if (key == null) {
-    _toast(context, state.error ?? 'Nem sikerült a kulcs létrehozása.');
+    _toast(context, state.error ?? tr('Nem sikerült a kulcs létrehozása.'));
     return;
   }
   await showDialog<void>(
     context: context,
     barrierDismissible: false,
     builder: (ctx) => AlertDialog(
-      title: const Text('Írd fel ezt a kulcsot'),
+      title: Text(tr('Írd fel ezt a kulcsot')),
       content: SizedBox(
         width: 440,
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           SelectableText(key, style: const TextStyle(fontFamily: 'monospace', fontSize: 16, height: 1.6, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
-          const Text('Ez az egyetlen alkalom, hogy látod. Aki ismeri, hozzáfér a széfedhez, ezért ne oszd meg senkivel.'),
+          Text(tr('Ez az egyetlen alkalom, hogy látod. Aki ismeri, hozzáfér a széfedhez, ezért ne oszd meg senkivel.')),
         ]),
       ),
       actions: [
         TextButton(
           onPressed: () async {
             await Clipboard.setData(ClipboardData(text: key));
-            if (ctx.mounted) _toast(ctx, 'Vágólapra másolva. Ne felejtsd el törölni.');
+            if (ctx.mounted) _toast(ctx, tr('Vágólapra másolva. Ne felejtsd el törölni.'));
           },
-          child: const Text('Másolás'),
+          child: Text(tr('Másolás')),
         ),
-        FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Felírtam')),
+        FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Felírtam'))),
       ],
     ),
   );
@@ -374,7 +386,7 @@ class TrashPage extends StatelessWidget {
         final list = state.trashed;
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Kuka'),
+            title: Text(tr('Kuka')),
             actions: [
               if (list.isNotEmpty)
                 TextButton(
@@ -382,34 +394,34 @@ class TrashPage extends StatelessWidget {
                     final ok = await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
-                        title: const Text('Kuka ürítése'),
-                        content: const Text('Minden elem véglegesen törlődik, nem állítható vissza.'),
+                        title: Text(tr('Kuka ürítése')),
+                        content: Text(tr('Minden elem véglegesen törlődik, nem állítható vissza.')),
                         actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Mégse')),
-                          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Ürítés')),
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Mégse'))),
+                          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Ürítés'))),
                         ],
                       ),
                     );
                     if (ok == true) await state.emptyTrash();
                   },
-                  child: const Text('Kuka ürítése'),
+                  child: Text(tr('Kuka ürítése')),
                 ),
             ],
           ),
           body: list.isEmpty
-              ? const Center(child: Text('A kuka üres.'))
+              ? Center(child: Text(tr('A kuka üres.')))
               : ListView(children: [
                   for (final i in list)
                     ListTile(
                       leading: Icon(i.kind == ItemKind.note ? Icons.description_outlined : Icons.key_outlined),
                       title: Text(i.name),
                       subtitle: Text(
-                        '${i.kind == ItemKind.note ? 'Jegyzet' : 'Jelszó'} · ${30 - DateTime.now().toUtc().difference(i.trashedAt!).inDays} nap múlva törlődik',
+                        trf('%1 · %2 nap múlva törlődik', [i.kind == ItemKind.note ? tr('Jegyzet') : tr('Jelszó'), 30 - DateTime.now().toUtc().difference(i.trashedAt!).inDays]),
                       ),
                       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                        TextButton(onPressed: () => state.restoreItem(i), child: const Text('Visszaállítás')),
+                        TextButton(onPressed: () => state.restoreItem(i), child: Text(tr('Visszaállítás'))),
                         IconButton(
-                          tooltip: 'Végleges törlés',
+                          tooltip: tr('Végleges törlés'),
                           icon: const Icon(Icons.delete_forever_outlined),
                           onPressed: () async {
                             await state.deleteForever(i.id);
@@ -458,7 +470,7 @@ class AuditPage extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Biztonsági ellenőrzés')),
+      appBar: AppBar(title: Text(tr('Biztonsági ellenőrzés'))),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         Center(
           child: ConstrainedBox(
@@ -472,21 +484,21 @@ class AuditPage extends StatelessWidget {
                     const SizedBox(width: 16),
                     Expanded(
                       child: Text(r.total == 0
-                          ? 'Még nincs elmentett jelszó.'
+                          ? tr('Még nincs elmentett jelszó.')
                           : r.problems == 0
-                              ? 'Minden jelszavad rendben van.'
-                              : '${r.problems} elemet érdemes megnézni ${r.total} jelszóból.'),
+                              ? tr('Minden jelszavad rendben van.')
+                              : trf('%1 elemet érdemes megnézni %2 jelszóból.', [r.problems, r.total])),
                     ),
                   ]),
                 ),
               ),
-              group('Gyenge jelszavak', 'Rövidek, kitalálhatók vagy gyakoriak. Generálj helyette erőset.', r.weak,
+              group(tr('Gyenge jelszavak'), tr('Rövidek, kitalálhatók vagy gyakoriak. Generálj helyette erőset.'), r.weak,
                   sub: (i) => strengthOf(i.password).label),
-              group('Ismétlődő jelszavak', 'Egy kiszivárgás több fiókodat is veszélybe sodorja.', [for (final g in r.reused) ...g],
-                  sub: (i) => 'Ugyanazt használja ${r.reused.firstWhere((g) => g.contains(i)).length} elem'),
-              group('Régi jelszavak', 'Több mint egy éve nem változtak.', r.old,
-                  sub: (i) => 'Utoljára: ${i.updatedAt.toLocal().toString().substring(0, 10)}'),
-              group('Jelszó nélküli elemek', 'Nincs jelszó megadva.', r.noPassword),
+              group(tr('Ismétlődő jelszavak'), tr('Egy kiszivárgás több fiókodat is veszélybe sodorja.'), [for (final g in r.reused) ...g],
+                  sub: (i) => trf('Ugyanazt használja %1 elem', [r.reused.firstWhere((g) => g.contains(i)).length])),
+              group(tr('Régi jelszavak'), tr('Több mint egy éve nem változtak.'), r.old,
+                  sub: (i) => trf('Utoljára: %1', [i.updatedAt.toLocal().toString().substring(0, 10)])),
+              group(tr('Jelszó nélküli elemek'), tr('Nincs jelszó megadva.'), r.noPassword),
             ]),
           ),
         ),

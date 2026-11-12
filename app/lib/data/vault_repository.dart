@@ -10,6 +10,7 @@ import '../crypto/vault_crypto.dart';
 import '../models/vault_item.dart';
 import '../util/recovery_code.dart';
 import 'local_store.dart';
+import '../i18n.dart';
 
 class VaultException implements Exception {
   VaultException(this.message);
@@ -121,7 +122,7 @@ class VaultRepository {
 
   SecretKey _requireKey() {
     final k = _vaultKey;
-    if (k == null) throw VaultException('A széf zárolva van.');
+    if (k == null) throw VaultException(tr('A széf zárolva van.'));
     return k;
   }
 
@@ -186,7 +187,7 @@ class VaultRepository {
     try {
       vaultKey = await VaultCrypto.unwrapVaultKey(res.wrappedKey, keys.encKey);
     } catch (_) {
-      throw VaultException('Hibás mesterjelszó.');
+      throw VaultException(tr('Hibás mesterjelszó.'));
     } finally {
       try {
         await api.logout();
@@ -206,13 +207,13 @@ class VaultRepository {
   /// Feloldás a mesterjelszóval (a helyi adatokból, hálózat nélkül is működik).
   Future<void> unlock(String password) async {
     final meta = _state.meta;
-    if (meta == null) throw VaultException('Nincs beállított fiók.');
+    if (meta == null) throw VaultException(tr('Nincs beállított fiók.'));
     final keys = await VaultCrypto.deriveMasterKeysAsync(password, meta.kdf);
     SecretKey vaultKey;
     try {
       vaultKey = await VaultCrypto.unwrapVaultKey(meta.wrappedKey, keys.encKey);
     } catch (_) {
-      throw VaultException('Hibás mesterjelszó.');
+      throw VaultException(tr('Hibás mesterjelszó.'));
     }
     _keys = keys;
     _vaultKey = vaultKey;
@@ -231,7 +232,7 @@ class VaultRepository {
     try {
       await VaultCrypto.unwrapVaultKey(meta.wrappedKey, oldKeys.encKey);
     } catch (_) {
-      throw VaultException('A jelenlegi mesterjelszó hibás.');
+      throw VaultException(tr('A jelenlegi mesterjelszó hibás.'));
     }
     final newKdf = _newKdf();
     final newKeys = await VaultCrypto.deriveMasterKeysAsync(newPassword, newKdf);
@@ -312,7 +313,7 @@ class VaultRepository {
     try {
       vk = await VaultCrypto.unwrapVaultKeyForRecovery(wrappedForRecovery, wrapKey);
     } catch (_) {
-      throw VaultException('A visszaállító kulcs nem nyitja a széfet.');
+      throw VaultException(tr('A visszaállító kulcs nem nyitja a széfet.'));
     }
     final newKdf = _newKdf();
     final newKeys = await VaultCrypto.deriveMasterKeysAsync(newPassword, newKdf);
@@ -343,13 +344,13 @@ class VaultRepository {
   /// Feloldás a mesterjelszó nélkül, a [exportUnlockSecrets] által adott adatokból.
   Future<void> unlockWithSecrets(Map<String, String> secrets) async {
     final meta = _state.meta;
-    if (meta == null) throw VaultException('Nincs beállított fiók.');
+    if (meta == null) throw VaultException(tr('Nincs beállított fiók.'));
     final enc = SecretKey(base64.decode(secrets['enc'] ?? ''));
     SecretKey vaultKey;
     try {
       vaultKey = await VaultCrypto.unwrapVaultKey(meta.wrappedKey, enc);
     } catch (_) {
-      throw VaultException('A mentett kulcs már nem érvényes. Oldd fel a mesterjelszóval.');
+      throw VaultException(tr('A mentett kulcs már nem érvényes. Oldd fel a mesterjelszóval.'));
     }
     _keys = MasterKeys(enc, secrets['auth'] ?? '');
     _vaultKey = vaultKey;
@@ -374,7 +375,7 @@ class VaultRepository {
   Future<void> upsert(VaultItem item) async {
     final vk = _requireKey();
     if (utf8.encode(jsonEncode(item.toJson())).length > maxItemBytes) {
-      throw VaultException('Túl nagy elem (legfeljebb kb. ${maxItemBytes ~/ 1000000} MB lehet). Bontsd több részre.');
+      throw VaultException(trf('Túl nagy elem (legfeljebb kb. %1 MB lehet). Bontsd több részre.', [maxItemBytes ~/ 1000000]));
     }
     item.updatedAt = DateTime.now().toUtc();
     final blob = await VaultCrypto.encryptItem(item.toJson(), item.id, vk);
@@ -523,7 +524,7 @@ class VaultRepository {
       final mine = await VaultCrypto.decryptItem(local.blob!, id, vk);
       final copyId = const Uuid().v4();
       mine['id'] = copyId;
-      mine['name'] = '${mine['name'] ?? ''} (ütköző példány)';
+      mine['name'] = trf('%1 (ütköző példány)', [mine['name'] ?? '']);
       mine['updatedAt'] = DateTime.now().toUtc().toIso8601String();
       final blob = await VaultCrypto.encryptItem(mine, copyId, vk);
       _state.entries[copyId] = LocalEntry(blob: blob, dirty: true)..ver = 1;

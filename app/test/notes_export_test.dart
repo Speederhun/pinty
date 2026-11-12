@@ -1,10 +1,12 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pinty/i18n.dart';
 import 'package:pinty/data/notes_export.dart';
 import 'package:pinty/models/vault_item.dart';
 
 void main() {
+  setLang('hu');
   test('crc32 ismert értékkel', () {
     expect(crc32(utf8.encode('123456789')), 0xCBF43926);
   });

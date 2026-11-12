@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_state.dart';
+import '../i18n.dart';
 
 class _AuthFrame extends StatelessWidget {
   const _AuthFrame({required this.children});
@@ -45,6 +46,8 @@ class _Brand extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Text('Pinty', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+        const Spacer(),
+        const LanguageMenu(),
       ]);
 }
 
@@ -104,22 +107,22 @@ class _WelcomePageState extends State<WelcomePage> {
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) => AlertDialog(
-          title: const Text('Visszaállítás kulccsal'),
+          title: Text(tr('Visszaállítás kulccsal')),
           content: SizedBox(
             width: 420,
             child: SingleChildScrollView(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Text('Add meg a fiókod visszaállító kulcsát és az új mesterjelszót. A széfed tartalma megmarad.'),
+                Text(tr('Add meg a fiókod visszaállító kulcsát és az új mesterjelszót. A széfed tartalma megmarad.')),
                 const SizedBox(height: 12),
-                TextField(controller: server, decoration: const InputDecoration(labelText: 'Szerver címe')),
+                TextField(controller: server, decoration: InputDecoration(labelText: tr('Szerver címe'))),
                 const SizedBox(height: 12),
-                TextField(controller: email, decoration: const InputDecoration(labelText: 'E-mail cím')),
+                TextField(controller: email, decoration: InputDecoration(labelText: tr('E-mail cím'))),
                 const SizedBox(height: 12),
-                TextField(controller: key, decoration: const InputDecoration(labelText: 'Visszaállító kulcs', hintText: 'XXXX-XXXX-…')),
+                TextField(controller: key, decoration: InputDecoration(labelText: tr('Visszaállító kulcs'), hintText: 'XXXX-XXXX-…')),
                 const SizedBox(height: 12),
-                TextField(controller: p1, obscureText: true, decoration: const InputDecoration(labelText: 'Új mesterjelszó (legalább 12 karakter)')),
+                TextField(controller: p1, obscureText: true, decoration: InputDecoration(labelText: tr('Új mesterjelszó (legalább 12 karakter)'))),
                 const SizedBox(height: 12),
-                TextField(controller: p2, obscureText: true, decoration: const InputDecoration(labelText: 'Új mesterjelszó újra')),
+                TextField(controller: p2, obscureText: true, decoration: InputDecoration(labelText: tr('Új mesterjelszó újra'))),
                 if (err != null) ...[
                   const SizedBox(height: 8),
                   Text(err!, style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
@@ -128,21 +131,21 @@ class _WelcomePageState extends State<WelcomePage> {
             ),
           ),
           actions: [
-            TextButton(onPressed: working ? null : () => Navigator.pop(ctx), child: const Text('Mégse')),
+            TextButton(onPressed: working ? null : () => Navigator.pop(ctx), child: Text(tr('Mégse'))),
             FilledButton(
               onPressed: working
                   ? null
                   : () async {
                       if (server.text.trim().isEmpty || email.text.trim().isEmpty || key.text.trim().isEmpty) {
-                        setS(() => err = 'Tölts ki minden mezőt.');
+                        setS(() => err = tr('Tölts ki minden mezőt.'));
                         return;
                       }
                       if (p1.text.length < 12) {
-                        setS(() => err = 'Az új mesterjelszó legyen legalább 12 karakter.');
+                        setS(() => err = tr('Az új mesterjelszó legyen legalább 12 karakter.'));
                         return;
                       }
                       if (p1.text != p2.text) {
-                        setS(() => err = 'A két jelszó nem egyezik.');
+                        setS(() => err = tr('A két jelszó nem egyezik.'));
                         return;
                       }
                       setS(() {
@@ -164,7 +167,7 @@ class _WelcomePageState extends State<WelcomePage> {
                         Navigator.pop(ctx);
                       }
                     },
-              child: Text(working ? 'Folyamatban…' : 'Visszaállítás'),
+              child: Text(working ? tr('Folyamatban…') : tr('Visszaállítás')),
             ),
           ],
         ),
@@ -176,16 +179,16 @@ class _WelcomePageState extends State<WelcomePage> {
     final s = widget.state;
     setState(() => _localError = null);
     if (_server.text.trim().isEmpty || _email.text.trim().isEmpty || _pass.text.isEmpty) {
-      setState(() => _localError = 'Tölts ki minden mezőt.');
+      setState(() => _localError = tr('Tölts ki minden mezőt.'));
       return;
     }
     if (_isNew) {
       if (_pass.text.length < 12) {
-        setState(() => _localError = 'A mesterjelszó legyen legalább 12 karakter (jelmondat is jó).');
+        setState(() => _localError = tr('A mesterjelszó legyen legalább 12 karakter (jelmondat is jó).'));
         return;
       }
       if (_pass.text != _pass2.text) {
-        setState(() => _localError = 'A két jelszó nem egyezik.');
+        setState(() => _localError = tr('A két jelszó nem egyezik.'));
         return;
       }
       s.register(
@@ -208,9 +211,9 @@ class _WelcomePageState extends State<WelcomePage> {
         const _Brand(),
         const SizedBox(height: 20),
         SegmentedButton<bool>(
-          segments: const [
-            ButtonSegment(value: true, label: Text('Új fiók')),
-            ButtonSegment(value: false, label: Text('Meglévő fiók')),
+          segments: [
+            ButtonSegment(value: true, label: Text(tr('Új fiók'))),
+            ButtonSegment(value: false, label: Text(tr('Meglévő fiók'))),
           ],
           selected: {_isNew},
           onSelectionChanged: s.busy
@@ -225,38 +228,38 @@ class _WelcomePageState extends State<WelcomePage> {
         TextField(
           controller: _server,
           keyboardType: TextInputType.url,
-          decoration: const InputDecoration(labelText: 'Szerver címe', hintText: 'https://vault.példa.hu'),
+          decoration: InputDecoration(labelText: tr('Szerver címe'), hintText: tr('https://vault.példa.hu')),
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _email,
           keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(labelText: 'E-mail cím'),
+          decoration: InputDecoration(labelText: tr('E-mail cím')),
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _pass,
           obscureText: true,
-          decoration: const InputDecoration(labelText: 'Mesterjelszó'),
+          decoration: InputDecoration(labelText: tr('Mesterjelszó')),
         ),
         if (_isNew) ...[
           const SizedBox(height: 12),
           TextField(
             controller: _pass2,
             obscureText: true,
-            decoration: const InputDecoration(labelText: 'Mesterjelszó újra'),
+            decoration: InputDecoration(labelText: tr('Mesterjelszó újra')),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _token,
-            decoration: const InputDecoration(
-              labelText: 'Meghívókód',
-              helperText: 'A rendszergazdától kapott, egyszer használható kód.',
+            decoration: InputDecoration(
+              labelText: tr('Meghívókód'),
+              helperText: tr('A rendszergazdától kapott, egyszer használható kód.'),
             ),
           ),
           const SizedBox(height: 12),
           Text(
-            'A mesterjelszót a szerver sem ismeri. Jegyezd meg, és a belépés után készíts visszaállító kulcsot is.',
+            tr('A mesterjelszót a szerver sem ismeri. Jegyezd meg, és a belépés után készíts visszaállító kulcsot is.'),
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
@@ -266,11 +269,11 @@ class _WelcomePageState extends State<WelcomePage> {
           onPressed: s.busy ? null : _submit,
           child: s.busy
               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-              : Text(_isNew ? 'Fiók létrehozása' : 'Bejelentkezés'),
+              : Text(_isNew ? tr('Fiók létrehozása') : tr('Bejelentkezés')),
         ),
         if (!_isNew) ...[
           const SizedBox(height: 8),
-          TextButton(onPressed: s.busy ? null : _recover, child: const Text('Elfelejtetted a mesterjelszót?')),
+          TextButton(onPressed: s.busy ? null : _recover, child: Text(tr('Elfelejtetted a mesterjelszót?'))),
         ],
       ]),
     );
@@ -308,14 +311,13 @@ class _UnlockPageState extends State<UnlockPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Kijelentkezés'),
-        content: const Text(
-          'Az eszközön lévő másolat törlődik. A szerveren lévő adataid megmaradnak, és újra bejelentkezhetsz. '
-          'A fel nem töltött módosítások elvesznek.',
+        title: Text(tr('Kijelentkezés')),
+        content: Text(
+          tr('Az eszközön lévő másolat törlődik. A szerveren lévő adataid megmaradnak, és újra bejelentkezhetsz. A fel nem töltött módosítások elvesznek.'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Mégse')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Kijelentkezés')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Mégse'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Kijelentkezés'))),
         ],
       ),
     );
@@ -336,7 +338,7 @@ class _UnlockPageState extends State<UnlockPage> {
           controller: _pass,
           obscureText: true,
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Mesterjelszó'),
+          decoration: InputDecoration(labelText: tr('Mesterjelszó')),
           onSubmitted: (_) => s.busy ? null : s.unlock(_pass.text),
         ),
         _ErrorText(s.error),
@@ -345,19 +347,35 @@ class _UnlockPageState extends State<UnlockPage> {
           onPressed: s.busy ? null : () => s.unlock(_pass.text),
           child: s.busy
               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Feloldás'),
+              : Text(tr('Feloldás')),
         ),
         if (s.biometricEnabled) ...[
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: s.busy ? null : s.unlockBiometric,
             icon: const Icon(Icons.fingerprint),
-            label: const Text('Feloldás biometrikusan'),
+            label: Text(tr('Feloldás biometrikusan')),
           ),
         ],
         const SizedBox(height: 8),
-        TextButton(onPressed: s.busy ? null : _signOut, child: const Text('Kijelentkezés ezen az eszközön')),
+        TextButton(onPressed: s.busy ? null : _signOut, child: Text(tr('Kijelentkezés ezen az eszközön'))),
       ]),
     );
   }
+}
+
+/// Nyelvválasztó menü (EN / HU).
+class LanguageMenu extends StatelessWidget {
+  const LanguageMenu({super.key});
+
+  @override
+  Widget build(BuildContext context) => PopupMenuButton<String>(
+        icon: const Icon(Icons.language),
+        tooltip: tr('Nyelv'),
+        onSelected: (c) => languageRequest?.call(c),
+        itemBuilder: (_) => [
+          CheckedPopupMenuItem(value: 'en', checked: currentLang == 'en', child: const Text('English')),
+          CheckedPopupMenuItem(value: 'hu', checked: currentLang == 'hu', child: const Text('Magyar')),
+        ],
+      );
 }

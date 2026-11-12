@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import '../i18n.dart';
 
 /// Base32 (RFC 4648) dekódolás; szóközöket, kötőjeleket és kisbetűket megenged.
 Uint8List base32Decode(String input) {
@@ -11,7 +12,7 @@ Uint8List base32Decode(String input) {
   final out = <int>[];
   for (final ch in s.split('')) {
     final idx = alphabet.indexOf(ch);
-    if (idx < 0) throw FormatException('Érvénytelen base32 karakter: $ch');
+    if (idx < 0) throw FormatException(trf('Érvénytelen base32 karakter: %1', [ch]));
     value = (value << 5) | idx;
     bits += 5;
     if (bits >= 8) {
@@ -35,7 +36,7 @@ String extractTotpSecret(String raw) {
 /// RFC 6238 szerinti TOTP (HMAC-SHA1), a Google Authenticator és társai formátuma.
 String totpCode(String secret, {DateTime? at, int digits = 6, int period = 30}) {
   final key = base32Decode(extractTotpSecret(secret));
-  if (key.isEmpty) throw const FormatException('Üres TOTP kulcs');
+  if (key.isEmpty) throw FormatException(tr('Üres TOTP kulcs'));
   final seconds = (at ?? DateTime.now()).toUtc().millisecondsSinceEpoch ~/ 1000;
   final counter = seconds ~/ period;
   final msg = ByteData(8)..setUint64(0, counter);
