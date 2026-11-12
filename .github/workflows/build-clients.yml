@@ -26,6 +26,12 @@ jobs:
       - run: flutter create --platforms=android --project-name pinty --org hu.pinty .
       - run: rm -f test/widget_test.dart
       # A release buildből alapból hiányzik az internet-engedély, enélkül nem érné el a szervert.
+      # A biometrikus feloldáshoz FragmentActivity és USE_BIOMETRIC engedély kell.
+      - name: Biometria (Android)
+        run: |
+          f=$(find android/app/src/main -name 'MainActivity.kt' | head -1)
+          sed -i 's/FlutterActivity/FlutterFragmentActivity/g' "$f"
+          sed -i 's#<application#<uses-permission android:name="android.permission.USE_BIOMETRIC"/>\n    <application#' android/app/src/main/AndroidManifest.xml
       - name: INTERNET engedély
         run: sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <application#' android/app/src/main/AndroidManifest.xml
       - run: flutter pub get
@@ -54,7 +60,7 @@ jobs:
           # Csak a hiányzó csomagokat telepítjük (a futtató képe sokat már tartalmaz), és ha az
           # alapértelmezett tükör nem érhető el, újrapróbálunk, végül a hivatalos tükörre váltunk.
           need=""
-          for p in clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev; do
+          for p in clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev libjsoncpp-dev; do
             dpkg -s "$p" >/dev/null 2>&1 || need="$need $p"
           done
           echo "hiányzó csomagok:${need:- nincs}"

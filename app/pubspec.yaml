@@ -18,6 +18,8 @@ dependencies:
   flutter_markdown: ^0.7.4+1
   file_picker: ^10.3.8
   url_launcher: ^6.3.0
+  local_auth: ^3.0.2
+  flutter_secure_storage: ^10.3.1
 
 dev_dependencies:
   flutter_test:
