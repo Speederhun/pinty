@@ -426,7 +426,7 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     final base = dark ? atomOneDarkTheme : atomOneLightTheme;
     final theme = {...base, 'root': TextStyle(color: base['root']?.color, backgroundColor: Colors.transparent)};
     const mono = TextStyle(fontFamily: 'monospace', fontSize: 13, height: 1.4);
-    final highlighted = lang.isNotEmpty && hl.allLanguages.containsKey(lang);
+    final highlighted = lang.isNotEmpty && hl.highlight.languages.containsKey(lang);
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
