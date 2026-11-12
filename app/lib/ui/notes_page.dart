@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -986,13 +987,90 @@ class _NoteEditorState extends State<NoteEditor> {
     _touch();
   }
 
+  /// Beszúrás a kurzornál, mindig külön sorba (hogy ne kerüljön pl. a ``` sor végére).
+  void _insertOwnLine(String line) {
+    final t = _body.text;
+    final sel = _body.selection;
+    final s = sel.isValid ? sel.start : t.length;
+    final e = sel.isValid ? sel.end : t.length;
+    final before = (s == 0 || t[s - 1] == '\n') ? '' : '\n';
+    final after = (e >= t.length || t[e] == '\n') ? '' : '\n';
+    final ins = '$before$line\n$after';
+    _body.value = TextEditingValue(
+      text: t.replaceRange(s, e, ins),
+      selection: TextSelection.collapsed(offset: s + ins.length),
+    );
+    _touch();
+    _bodyFocus.requestFocus();
+  }
+
+  final Map<String, Uint8List> _imgCache = {};
+
+  Uint8List? _imageBytes(VaultItem f) {
+    try {
+      return _imgCache.putIfAbsent(f.id, () => base64Decode(f.data));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Szerkesztés közben a jegyzetbe ágyazott képek bélyegképei (a szövegmezőbe nem lehet képet tenni).
+  Widget _imageStrip(PintyPalette p) {
+    return AnimatedBuilder(
+      animation: _body,
+      builder: (context, _) {
+        final idx = state.noteIndex;
+        final seen = <String>{};
+        final imgs = <VaultItem>[];
+        for (final m in RegExp(r'!\[\[([^\[\]\n|#]+)').allMatches(_body.text)) {
+          final f = idx.fileByName(m.group(1)!.trim());
+          if (f != null && seen.add(f.id)) imgs.add(f);
+        }
+        if (imgs.isEmpty) return const SizedBox.shrink();
+        return Container(
+          height: 96,
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.line))),
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.all(8),
+            children: [
+              for (final f in imgs)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Tooltip(
+                    message: f.name,
+                    child: InkWell(
+                      onTap: () {
+                        final b = _imageBytes(f);
+                        if (b == null) return;
+                        showDialog<void>(
+                          context: context,
+                          builder: (ctx) => Dialog(child: InteractiveViewer(child: Image.memory(b))),
+                        );
+                      },
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: _imageBytes(f) == null
+                            ? const SizedBox(width: 80, child: Icon(Icons.broken_image_outlined))
+                            : Image.memory(_imageBytes(f)!, height: 80, fit: BoxFit.cover, cacheHeight: 160),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _insertImage() async {
     final res = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
     final f = res?.files.firstOrNull;
     if (f == null || f.bytes == null) return;
     try {
       final item = await state.addImage(f.name, f.bytes!);
-      _wrap('![[${item.name}]]', '');
+      _insertOwnLine('![[${item.name}]]');
     } catch (e) {
       if (mounted) _toast(context, friendlyError(e));
     }
@@ -1106,6 +1184,7 @@ class _NoteEditorState extends State<NoteEditor> {
 
   Widget _editorColumn() {
     return Column(children: [
+      _imageStrip(pintyPalettes[state.theme]!),
       Expanded(
         child: TextField(
           controller: _body,
