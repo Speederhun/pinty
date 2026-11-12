@@ -62,3 +62,9 @@ Ha az egyik oldalon töröltek, a másikon módosítottak, a módosított válto
 - Titkosított helyi tárolás a kliensen (kulcs az OS kulcstartóban), automatikus zárolás.
 - Függőségek rendszeres frissítése.
 - Mesterjelszó-csere az appból (a szerver oldala kész), és biztonsági mentés/export funkció.
+
+## Helyreállító kulcs, mentés, biometria
+
+- **Helyreállító kulcs:** 256 bites véletlen kulcs. HKDF-fel két részre bomlik (`pinty-recovery-enc-v1` csomagoló kulcs, `pinty-recovery-auth-v1` bizonyíték). A szerver csak a bizonyíték hash-ét és a csomagolt vault kulcsot tárolja, a kulcsot nem ismeri.
+- **Titkosított mentés:** `pinty-backup` JSON, Argon2id + HKDF (`pinty-backup-v1`) kulccsal, XChaCha20-Poly1305-tel titkosítva. A CSV export titkosítatlan, a felület figyelmeztet.
+- **Biometrikus feloldás:** csak Androidon és Windowson. A kulcsanyagot az OS biztonságos tárolója őrzi, a hozzáférést a biometrikus hitelesítés kapuzza.

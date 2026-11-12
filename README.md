@@ -25,6 +25,15 @@ szinkronizációval az eszközök között.
 
 Részletek: [docs/SECURITY.md](docs/SECURITY.md), [docs/API.md](docs/API.md).
 
+## Újdonságok
+
+- Mappák, címkék, kedvencek a jelszavakhoz és a jegyzetekhez
+- Master jelszó csere az appból, helyreállító kulcs
+- Biometrikus feloldás (Android, Windows)
+- Jelszó előzmények és kuka (30 nap)
+- Titkosított mentés, CSV és Bitwarden import
+- Jelszó erősség és újrahasználat ellenőrzés
+
 ## Letöltés
 
 A GitHub Actions minden változtatás után megépíti a programokat. A **Releases** oldalon találod:

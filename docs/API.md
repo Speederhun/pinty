@@ -21,3 +21,15 @@ A szerver felhasználónként egy növekvő revíziószámot vezet. Minden írá
 A kliens megjegyzi az utolsó `rev` értéket, és `since=<rev>`-vel csak az újdonságokat kéri le.
 Íráskor a `base_rev` az elem utoljára ismert revíziója (újnál 0). Ha közben máshol módosították,
 a szerver `409`-et ad, a kliens pedig összefésüli a két változatot, és a régit megőrzi az elem történetében.
+
+## Jelszócsere és helyreállítás
+
+| Végpont | Leírás |
+|---|---|
+| `PUT /api/v1/account/password` | Master jelszó csere: új `auth_hash` és újra csomagolt vault kulcs. |
+| `GET /api/v1/recovery` | Van-e beállított helyreállító kulcs (`{enabled}`). |
+| `PUT /api/v1/recovery` | Helyreállító kulcs beállítása: `proof` és a vele csomagolt vault kulcs. |
+| `POST /api/v1/recover/fetch` | A csomagolt vault kulcs lekérése a helyreállító bizonyíték alapján. |
+| `POST /api/v1/recover/reset` | Új master jelszó beállítása a helyreállító kulccsal. |
+
+A recover végpontok minden hibára ugyanazt a `401`-et adják, azonos időzítéssel.
