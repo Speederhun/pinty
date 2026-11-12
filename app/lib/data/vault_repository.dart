@@ -73,9 +73,9 @@ class VaultRepository {
   /// A jegyzetekhez csatolt fájlok.
   List<VaultItem> get files => _ofKind(ItemKind.file);
 
-  /// A szerver blobonkénti korlátja 256 KiB (base64-ben), ezért a titkosítás előtti JSON ennyit
+  /// A szerver blobonkénti korlátja 8 MiB (base64-ben), ezért a titkosítás előtti JSON ennyit
   /// bírhat el biztonságosan.
-  static const maxItemBytes = 175000;
+  static const maxItemBytes = 5500000;
 
   Future<void> init() async {
     _state = await store.load();
@@ -199,7 +199,7 @@ class VaultRepository {
   Future<void> upsert(VaultItem item) async {
     final vk = _requireKey();
     if (utf8.encode(jsonEncode(item.toJson())).length > maxItemBytes) {
-      throw VaultException('Túl nagy elem (legfeljebb kb. ${maxItemBytes ~/ 1000} KB lehet). Bontsd több részre.');
+      throw VaultException('Túl nagy elem (legfeljebb kb. ${maxItemBytes ~/ 1000000} MB lehet). Bontsd több részre.');
     }
     item.updatedAt = DateTime.now().toUtc();
     final blob = await VaultCrypto.encryptItem(item.toJson(), item.id, vk);

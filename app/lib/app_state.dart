@@ -119,12 +119,12 @@ class AppState extends ChangeNotifier {
     return newNote(title: title, folder: 'Napi', body: body);
   }
 
-  static const maxImageBytes = 100 * 1024;
+  static const maxImageBytes = 3 * 1024 * 1024;
 
   /// Kép csatolása a széfhez (a jegyzetekben `![[név]]`-vel beágyazható). A neve egyedi lesz.
   Future<VaultItem> addImage(String name, Uint8List bytes) async {
     if (bytes.length > maxImageBytes) {
-      throw VaultException('A kép legfeljebb ${maxImageBytes ~/ 1024} KB lehet (a titkosított blobok mérete korlátos).');
+      throw VaultException('A kép legfeljebb ${maxImageBytes ~/ (1024 * 1024)} MB lehet.');
     }
     final lower = name.toLowerCase();
     final mime = lower.endsWith('.png')
