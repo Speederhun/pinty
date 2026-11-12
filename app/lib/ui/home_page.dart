@@ -87,18 +87,18 @@ class _Sidebar extends StatelessWidget {
         const Spacer(),
         Text(tr('TÉMA'), style: TextStyle(color: muted, fontSize: 11, letterSpacing: 1)),
         const SizedBox(height: 8),
-        Row(children: [
+        Wrap(spacing: 10, runSpacing: 10, children: [
           for (final id in PintyThemeId.values)
-            Padding(
-              padding: const EdgeInsets.only(right: 10),
+            Tooltip(
+              message: id.label,
               child: Semantics(
                 button: true,
                 label: id.label,
                 child: GestureDetector(
                   onTap: () => state.setTheme(id),
                   child: Container(
-                    width: 32,
-                    height: 32,
+                    width: 28,
+                    height: 28,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: id == PintyThemeId.dark
