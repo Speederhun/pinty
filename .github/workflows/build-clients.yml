@@ -127,6 +127,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    concurrency:
+      group: release-clients
+      cancel-in-progress: false
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -138,7 +141,14 @@ jobs:
         run: |
           ls -la dist
           gh release delete client-latest --cleanup-tag -y -R "${{ github.repository }}" || true
-          gh release create client-latest dist/* -R "${{ github.repository }}" \
-            --prerelease --target "${{ github.sha }}" \
-            --title "Kliens (legfrissebb)" \
-            --notes "Automatikusan épített kliensek. Commit: ${{ github.sha }}. Az alkalmazások nincsenek kereskedelmi tanúsítvánnyal aláírva, ezért az első indításkor az operációs rendszer figyelmeztethet."
+          for i in 1 2 3 4 5 6; do
+            if gh release create client-latest dist/* -R "${{ github.repository }}" \
+              --prerelease --target "${{ github.sha }}" \
+              --title "Kliens (legfrissebb)" \
+              --notes "Automatikusan épített kliensek. Commit: ${{ github.sha }}. Az alkalmazások nincsenek kereskedelmi tanúsítvánnyal aláírva, ezért az első indításkor az operációs rendszer figyelmeztethet."; then
+              exit 0
+            fi
+            echo "újrapróbálás ($i)…"; sleep 10
+            gh release delete client-latest --cleanup-tag -y -R "${{ github.repository }}" || true
+          done
+          exit 1
