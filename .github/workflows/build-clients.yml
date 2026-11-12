@@ -107,6 +107,8 @@ jobs:
         shell: pwsh
       - run: flutter pub get
       - run: flutter build windows --release
+        env:
+          CL: /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS /D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS
       - run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath pinty-windows-x64.zip
         shell: pwsh
       - uses: actions/upload-artifact@v4
