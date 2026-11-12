@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -57,11 +58,24 @@ class VaultRepository {
   bool get isUnlocked => _vaultKey != null;
   LocalMeta? get meta => _state.meta;
 
-  List<VaultItem> get items {
-    final list = _items.values.toList();
+  List<VaultItem> _ofKind(String kind) {
+    final list = _items.values.where((i) => i.kind == kind).toList();
     list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     return list;
   }
+
+  /// A jelszó-bejegyzések.
+  List<VaultItem> get items => _ofKind(ItemKind.login);
+
+  /// A jegyzetek.
+  List<VaultItem> get notes => _ofKind(ItemKind.note);
+
+  /// A jegyzetekhez csatolt fájlok.
+  List<VaultItem> get files => _ofKind(ItemKind.file);
+
+  /// A szerver blobonkénti korlátja 256 KiB (base64-ben), ezért a titkosítás előtti JSON ennyit
+  /// bírhat el biztonságosan.
+  static const maxItemBytes = 175000;
 
   Future<void> init() async {
     _state = await store.load();
@@ -184,6 +198,9 @@ class VaultRepository {
 
   Future<void> upsert(VaultItem item) async {
     final vk = _requireKey();
+    if (utf8.encode(jsonEncode(item.toJson())).length > maxItemBytes) {
+      throw VaultException('Túl nagy elem (legfeljebb kb. ${maxItemBytes ~/ 1000} KB lehet). Bontsd több részre.');
+    }
     item.updatedAt = DateTime.now().toUtc();
     final blob = await VaultCrypto.encryptItem(item.toJson(), item.id, vk);
     final e = _state.entries[item.id];

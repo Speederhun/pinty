@@ -1,9 +1,20 @@
 /// Egy széf-elem. A teljes objektum JSON-ja kerül titkosításra, a szerver
 /// csak a titkosított blobot látja.
+/// Az elem fajtája: jelszó-bejegyzés, jegyzet vagy csatolt fájl (kép).
+class ItemKind {
+  static const login = 'login';
+  static const note = 'note';
+  static const file = 'file';
+}
+
 class VaultItem {
   VaultItem({
     required this.id,
     required this.name,
+    this.kind = ItemKind.login,
+    this.tags = const [],
+    this.mime = '',
+    this.data = '',
     this.username = '',
     this.password = '',
     this.url = '',
@@ -17,6 +28,16 @@ class VaultItem {
 
   final String id;
   String name;
+
+  /// [ItemKind]; a régi elemeknél hiányzik, ilyenkor `login`.
+  String kind;
+
+  /// Jegyzeteknél: a szövegből függetlenül felvett címkék (a #címkék a szövegből külön számítódnak).
+  List<String> tags;
+
+  /// Csatolt fájlnál: MIME típus és a tartalom base64-ben.
+  String mime;
+  String data;
   String username;
   String password;
   String url;
@@ -32,7 +53,11 @@ class VaultItem {
 
   Map<String, dynamic> toJson() => {
         'id': id,
+        'kind': kind,
         'name': name,
+        if (tags.isNotEmpty) 'tags': tags,
+        if (mime.isNotEmpty) 'mime': mime,
+        if (data.isNotEmpty) 'data': data,
         'username': username,
         'password': password,
         'url': url,
@@ -45,6 +70,10 @@ class VaultItem {
 
   factory VaultItem.fromJson(Map<String, dynamic> j, {int rev = 0}) => VaultItem(
         id: j['id'] as String,
+        kind: (j['kind'] as String?) ?? ItemKind.login,
+        tags: ((j['tags'] as List?) ?? const []).whereType<String>().toList(),
+        mime: (j['mime'] as String?) ?? '',
+        data: (j['data'] as String?) ?? '',
         name: (j['name'] as String?) ?? '',
         username: (j['username'] as String?) ?? '',
         password: (j['password'] as String?) ?? '',

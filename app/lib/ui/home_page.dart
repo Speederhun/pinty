@@ -10,8 +10,8 @@ import '../theme/pinty_theme.dart';
 import '../util/totp.dart';
 import 'generator_dialog.dart';
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key, required this.state});
+class PasswordsPage extends StatelessWidget {
+  const PasswordsPage({super.key, required this.state});
   final AppState state;
 
   @override
@@ -31,7 +31,7 @@ class HomePage extends StatelessWidget {
                     onPressed: state.sync,
                     icon: const Icon(Icons.sync),
                   ),
-                  _ThemeMenu(state: state),
+                  ThemeMenu(state: state),
                   IconButton(
                     tooltip: 'Zárolás',
                     onPressed: state.lock,
@@ -139,8 +139,8 @@ class _Sidebar extends StatelessWidget {
   }
 }
 
-class _ThemeMenu extends StatelessWidget {
-  const _ThemeMenu({required this.state});
+class ThemeMenu extends StatelessWidget {
+  const ThemeMenu({required this.state});
   final AppState state;
 
   @override
@@ -290,11 +290,11 @@ class _DetailBodyState extends State<_DetailBody> {
       const SizedBox(height: 16),
       Card(
         child: Column(children: [
-          _Row(label: 'Felhasználónév', value: it.username, onCopy: () => _copy(it.username)),
+          _Row(label: 'Felhasználónév', value: it.username, onCopy: () => copySecret(it.username)),
           _Row(
             label: 'Jelszó',
             value: _show ? it.password : '••••••••••••',
-            onCopy: () => _copy(it.password),
+            onCopy: () => copySecret(it.password),
             extra: TextButton(
               onPressed: () => setState(() => _show = !_show),
               child: Text(_show ? 'Elrejtés' : 'Mutatás'),
@@ -374,7 +374,7 @@ class _TotpTileState extends State<_TotpTile> {
             child: CircularProgressIndicator(value: remaining / 30, strokeWidth: 3),
           ),
         ),
-        IconButton(tooltip: 'Másolás', onPressed: () => _copy(code), icon: const Icon(Icons.copy_outlined)),
+        IconButton(tooltip: 'Másolás', onPressed: () => copySecret(code), icon: const Icon(Icons.copy_outlined)),
       ]),
     );
   }
@@ -400,7 +400,7 @@ class _Row extends StatelessWidget {
 }
 
 // A vágólapot 30 másodperc után töröljük, ha még ugyanaz van benne.
-Future<void> _copy(String text) async {
+Future<void> copySecret(String text) async {
   await Clipboard.setData(ClipboardData(text: text));
   Future<void>.delayed(const Duration(seconds: 30), () async {
     final cur = await Clipboard.getData(Clipboard.kTextPlain);

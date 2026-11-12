@@ -1,14 +1,18 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show SocketException;
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 import 'api/pinty_api.dart';
 import 'data/vault_repository.dart';
 import 'models/vault_item.dart';
 import 'theme/pinty_theme.dart';
+import 'util/note_logic.dart';
 
 enum Stage { loading, welcome, locked, unlocked }
 
@@ -37,6 +41,8 @@ class AppState extends ChangeNotifier {
   String? error;
   String? syncStatus;
   String? selectedId;
+  String? selectedNoteId;
+  int tab = 0; // 0 = jelszavak, 1 = jegyzetek
 
   Timer? _idle;
   Timer? _periodic;
@@ -44,6 +50,104 @@ class AppState extends ChangeNotifier {
   bool _syncing = false;
 
   List<VaultItem> get items => repo.items;
+
+  NoteIndex? _noteIdx;
+
+  /// A jegyzetek kapcsolati térképe (visszahivatkozások, címkék, mappák); változáskor újraépül.
+  NoteIndex get noteIndex => _noteIdx ??= NoteIndex(repo.notes, repo.files);
+
+  @override
+  void notifyListeners() {
+    _noteIdx = null;
+    super.notifyListeners();
+  }
+
+  void setTab(int i) {
+    tab = i;
+    notifyListeners();
+  }
+
+  VaultItem? get selectedNote => selectedNoteId == null ? null : noteIndex.byId(selectedNoteId!);
+
+  void selectNote(String? id) {
+    selectedNoteId = id;
+    notifyListeners();
+  }
+
+  /// Új, üres jegyzet (opcionálisan kezdőszöveggel); kijelöli.
+  Future<VaultItem> newNote({String title = '', String folder = '', String body = ''}) async {
+    final taken = {for (final n in repo.notes) n.name.toLowerCase()};
+    var name = title.trim().isEmpty ? 'Névtelen jegyzet' : title.trim();
+    var candidate = name;
+    for (var i = 2; taken.contains(candidate.toLowerCase()); i++) {
+      candidate = '$name $i';
+    }
+    final note = VaultItem(id: const Uuid().v4(), name: candidate, kind: ItemKind.note, folder: folder, notes: body);
+    await saveNote(note);
+    return note;
+  }
+
+  /// Jegyzet mentése. Ha a cím megváltozott, a többi jegyzetben a rá mutató [[linkeket]] is átírja.
+  Future<void> saveNote(VaultItem note, {String? oldTitle}) async {
+    await repo.upsert(note);
+    if (oldTitle != null && oldTitle.trim().isNotEmpty && oldTitle.trim().toLowerCase() != note.name.trim().toLowerCase()) {
+      for (final other in repo.notes) {
+        if (other.id == note.id) continue;
+        final updated = renameLinks(other.notes, oldTitle, note.name);
+        if (updated != other.notes) {
+          other.notes = updated;
+          await repo.upsert(other);
+        }
+      }
+    }
+    selectedNoteId = note.id;
+    notifyListeners();
+    _scheduleSync();
+  }
+
+  /// A mai napi jegyzet (létrehozza, ha még nincs). A "Sablonok/Napi" nevű jegyzet a sablonja.
+  Future<VaultItem> openDaily([DateTime? now]) async {
+    final day = now ?? DateTime.now();
+    final title = dateTitle(day);
+    final existing = noteIndex.resolve(title);
+    if (existing != null) {
+      selectNote(existing.id);
+      return existing;
+    }
+    final tpl = noteIndex.notes.where((n) => n.folder == 'Sablonok' && n.name.toLowerCase() == 'napi').firstOrNull;
+    final body = tpl != null ? applyTemplate(tpl.notes, title: title, now: day) : '# $title\n\n## Teendők\n- [ ] \n\n## Jegyzetek\n';
+    return newNote(title: title, folder: 'Napi', body: body);
+  }
+
+  static const maxImageBytes = 100 * 1024;
+
+  /// Kép csatolása a széfhez (a jegyzetekben `![[név]]`-vel beágyazható). A neve egyedi lesz.
+  Future<VaultItem> addImage(String name, Uint8List bytes) async {
+    if (bytes.length > maxImageBytes) {
+      throw VaultException('A kép legfeljebb ${maxImageBytes ~/ 1024} KB lehet (a titkosított blobok mérete korlátos).');
+    }
+    final lower = name.toLowerCase();
+    final mime = lower.endsWith('.png')
+        ? 'image/png'
+        : lower.endsWith('.gif')
+            ? 'image/gif'
+            : lower.endsWith('.webp')
+                ? 'image/webp'
+                : (lower.endsWith('.jpg') || lower.endsWith('.jpeg'))
+                    ? 'image/jpeg'
+                    : '';
+    if (mime.isEmpty) throw VaultException('Csak PNG, JPG, GIF vagy WebP kép csatolható.');
+    var unique = name;
+    for (var i = 2; noteIndex.fileByName(unique) != null; i++) {
+      final dot = name.lastIndexOf('.');
+      unique = '${name.substring(0, dot)}-$i${name.substring(dot)}';
+    }
+    final f = VaultItem(id: const Uuid().v4(), name: unique, kind: ItemKind.file, mime: mime, data: base64Encode(bytes));
+    await repo.upsert(f);
+    notifyListeners();
+    _scheduleSync();
+    return f;
+  }
   String get email => repo.meta?.email ?? '';
   String get serverUrl => repo.meta?.serverUrl ?? '';
 
@@ -155,6 +259,8 @@ class AppState extends ChangeNotifier {
       stage = repo.hasAccount ? Stage.locked : Stage.welcome;
     }
     selectedId = null;
+    selectedNoteId = null;
+    tab = 0;
     error = null;
     notifyListeners();
   }

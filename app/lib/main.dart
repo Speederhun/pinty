@@ -7,7 +7,7 @@ import 'data/local_store.dart';
 import 'data/vault_repository.dart';
 import 'theme/pinty_theme.dart';
 import 'ui/auth_pages.dart';
-import 'ui/home_page.dart';
+import 'ui/shell.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

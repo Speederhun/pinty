@@ -109,6 +109,7 @@ jobs:
         run: |
           for f in macos/Runner/DebugProfile.entitlements macos/Runner/Release.entitlements; do
             /usr/libexec/PlistBuddy -c "Add :com.apple.security.network.client bool true" "$f" || true
+            /usr/libexec/PlistBuddy -c "Add :com.apple.security.files.user-selected.read-only bool true" "$f" || true
           done
       - run: flutter pub get
       - run: flutter build macos --release

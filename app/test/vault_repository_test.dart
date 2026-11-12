@@ -184,4 +184,32 @@ void main() {
     );
     expect(b.hasAccount, isFalse);
   });
+
+  test('jegyzetek és képek szinkronja; a jelszólista nem tartalmazza őket', () async {
+    final server = FakeServer();
+    final a = await _registered(server);
+    await a.upsert(VaultItem(id: 'l1', name: 'GitHub', password: 'p'));
+    await a.upsert(VaultItem(id: 'n1', name: 'Terv', kind: ItemKind.note, notes: 'Lásd [[Másik]] #munka', folder: 'Munka'));
+    await a.upsert(VaultItem(id: 'f1', name: 'kep.png', kind: ItemKind.file, mime: 'image/png', data: 'AAAA'));
+    await a.sync();
+
+    for (final b in server.blobs) {
+      expect(b.contains('Terv'), isFalse);
+      expect(b.contains('munka'), isFalse);
+    }
+    final b = await _connected(server);
+    expect(b.items.map((i) => i.id), ['l1']);
+    expect(b.notes.map((i) => i.id), ['n1']);
+    expect(b.notes.single.folder, 'Munka');
+    expect(b.files.single.data, 'AAAA');
+  });
+
+  test('túl nagy jegyzetet nem fogad el', () async {
+    final server = FakeServer();
+    final a = await _registered(server);
+    final big = VaultItem(id: 'n2', name: 'Nagy', kind: ItemKind.note, notes: 'x' * (VaultRepository.maxItemBytes + 10));
+    expect(() => a.upsert(big), throwsA(isA<VaultException>()));
+    await a.upsert(VaultItem(id: 'n3', name: 'Elég', kind: ItemKind.note, notes: 'x' * 100000));
+    expect(a.notes.length, 1);
+  });
 }
