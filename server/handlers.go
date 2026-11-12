@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	maxBody      = 12 << 20  // 12 MiB / kérés
-	maxBlob      = 8 << 20   // 8 MiB / elem (titkosítva, base64-ben)
+	maxBody      = 12 << 20 // 12 MiB / kérés
+	maxBlob      = 8 << 20  // 8 MiB / elem (titkosítva, base64-ben)
 	tokenTTL     = 30 * 24 * time.Hour
 	defaultMemKB = 65536 // 64 MiB
 	defaultIter  = 3
