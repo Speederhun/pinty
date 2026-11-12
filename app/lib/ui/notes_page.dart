@@ -20,6 +20,7 @@ import '../util/note_logic.dart';
 import 'folder_manager.dart';
 import 'graph_page.dart';
 import 'home_page.dart' show ThemeMenu;
+import 'live_markdown.dart';
 
 void _toast(BuildContext context, String msg) {
   ScaffoldMessenger.of(context)
@@ -632,7 +633,7 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
   }
 }
 
-enum _Mode { edit, split, preview }
+enum _Mode { live, source, preview }
 
 /// A szerkesztő: markdown, élő előnézet, [[ ]] automatikus kiegészítés, kép beillesztés,
 /// automatikus mentés és oldalpanel (visszahivatkozások, vázlat).
@@ -659,10 +660,10 @@ class NoteEditor extends StatefulWidget {
 class _NoteEditorState extends State<NoteEditor> {
   late final TextEditingController _title = TextEditingController(text: widget.note.name);
   late final TextEditingController _folder = TextEditingController(text: widget.note.folder);
-  late final TextEditingController _body = TextEditingController(text: widget.note.notes);
+  late final LiveMarkdownController _body = LiveMarkdownController(text: widget.note.notes);
   late final FocusNode _bodyFocus = FocusNode();
   late String _savedTitle = widget.note.name;
-  _Mode _mode = _Mode.edit;
+  _Mode _mode = _Mode.live;
   Timer? _debounce;
   String _status = '';
   bool _dirty = false;
@@ -676,17 +677,6 @@ class _NoteEditorState extends State<NoteEditor> {
     super.initState();
     _body.addListener(_onBodyChanged);
   }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (widget.wide && _mode == _Mode.edit && !_modeChosen) {
-      _modeChosen = true;
-      if (MediaQuery.sizeOf(context).width >= 1100) _mode = _Mode.split;
-    }
-  }
-
-  bool _modeChosen = false;
 
   @override
   void dispose() {
@@ -810,6 +800,24 @@ class _NoteEditorState extends State<NoteEditor> {
     );
     _touch();
     _bodyFocus.requestFocus();
+  }
+
+  /// Ctrl+Enter: a kurzor alatti [[hivatkozás]] megnyitása (mint az Obsidianban a Ctrl+kattintás).
+  Future<void> _followLink() async {
+    final t = _body.text;
+    final pos = _body.selection.isValid ? _body.selection.start : -1;
+    if (pos < 0) return;
+    for (final m in RegExp(r'\[\[([^\[\]\n]+?)\]\]').allMatches(t)) {
+      if (pos >= m.start && pos <= m.end) {
+        var target = m.group(1)!;
+        final bar = target.indexOf('|');
+        if (bar >= 0) target = target.substring(0, bar);
+        final hash = target.indexOf('#');
+        if (hash >= 0) target = target.substring(0, hash);
+        await _onLink('$noteScheme:${encodeRef(target.trim())}');
+        return;
+      }
+    }
   }
 
   Future<void> _codeBlock() async {
@@ -973,6 +981,16 @@ class _NoteEditorState extends State<NoteEditor> {
   }
 
   Widget _editor() {
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.enter, control: true): _followLink,
+        const SingleActivator(LogicalKeyboardKey.enter, meta: true): _followLink,
+      },
+      child: _editorColumn(),
+    );
+  }
+
+  Widget _editorColumn() {
     return Column(children: [
       Expanded(
         child: TextField(
@@ -983,7 +1001,9 @@ class _NoteEditorState extends State<NoteEditor> {
           maxLines: null,
           minLines: null,
           textAlignVertical: TextAlignVertical.top,
-          style: const TextStyle(fontFamily: 'monospace', height: 1.45),
+          style: _mode == _Mode.live
+              ? const TextStyle(fontSize: 16, height: 1.55)
+              : const TextStyle(fontFamily: 'monospace', height: 1.45),
           decoration: const InputDecoration(
             hintText: 'Írj ide… Markdown, [[hivatkozás]], #címke',
             border: InputBorder.none,
@@ -1010,18 +1030,15 @@ class _NoteEditorState extends State<NoteEditor> {
   @override
   Widget build(BuildContext context) {
     final p = pintyPalettes[state.theme]!;
-    final canSplit = MediaQuery.sizeOf(context).width >= 1000;
-    final mode = (_mode == _Mode.split && !canSplit) ? _Mode.edit : _mode;
+    final mode = _mode;
+    _body
+      ..palette = p
+      ..live = mode == _Mode.live;
     final panelInline = MediaQuery.sizeOf(context).width >= 1280;
 
     final body = switch (mode) {
-      _Mode.edit => _editor(),
+      _Mode.live || _Mode.source => _editor(),
       _Mode.preview => _preview(p),
-      _Mode.split => Row(children: [
-          Expanded(child: _editor()),
-          VerticalDivider(width: 1, color: p.line),
-          Expanded(child: _preview(p)),
-        ]),
     };
 
     final header = Padding(
@@ -1048,9 +1065,9 @@ class _NoteEditorState extends State<NoteEditor> {
           showSelectedIcon: false,
           style: const ButtonStyle(visualDensity: VisualDensity.compact),
           segments: [
-            const ButtonSegment(value: _Mode.edit, icon: Icon(Icons.edit_outlined), tooltip: 'Szerkesztés'),
-            if (canSplit) const ButtonSegment(value: _Mode.split, icon: Icon(Icons.vertical_split_outlined), tooltip: 'Osztott'),
-            const ButtonSegment(value: _Mode.preview, icon: Icon(Icons.visibility_outlined), tooltip: 'Előnézet'),
+            const ButtonSegment(value: _Mode.live, icon: Icon(Icons.edit_outlined), tooltip: 'Szerkesztés (élő nézet)'),
+            const ButtonSegment(value: _Mode.source, icon: Icon(Icons.code), tooltip: 'Forrás (nyers markdown)'),
+            const ButtonSegment(value: _Mode.preview, icon: Icon(Icons.visibility_outlined), tooltip: 'Olvasás (linkek, képek)'),
           ],
           selected: {mode},
           onSelectionChanged: (s) async {
