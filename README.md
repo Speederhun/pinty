@@ -1,5 +1,7 @@
 # Pinty
 
+<p align="center"><img src="docs/preview.svg" alt="Pinty: jelszavak és jegyzetek, világos és sötét témában" width="900"></p>
+
 Saját, végponttól végpontig titkosított jelszókezelő **Windowsra, Linuxra, macOS-re és Androidra**,
 szinkronizációval az eszközök között.
 
