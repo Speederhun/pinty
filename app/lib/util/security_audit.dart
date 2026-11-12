@@ -63,7 +63,7 @@ class AuditReport {
   final List<VaultItem> noPassword;
   final int total;
 
-  int get problems => weak.length + reused.fold(0, (a, g) => a + g.length) + old.length;
+  int get problems => weak.length + reused.fold<int>(0, (a, g) => a + g.length) + old.length;
 
   /// 0–100, minél több a gond, annál kisebb.
   int get score {

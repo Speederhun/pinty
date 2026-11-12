@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show SocketException;
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -272,12 +271,12 @@ class AppState extends ChangeNotifier {
 
   Future<void> unlockBiometric() async {
     final ok = await _guard(() async {
-      final secrets = await unlockHelper.read(this.email);
+      final secrets = await unlockHelper.read(email);
       if (secrets == null) throw VaultException('A biometrikus azonosítás nem sikerült.');
       try {
         await repo.unlockWithSecrets(secrets);
       } on VaultException {
-        await unlockHelper.disable(this.email);
+        await unlockHelper.disable(email);
         biometricEnabled = false;
         rethrow;
       }

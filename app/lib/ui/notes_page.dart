@@ -651,7 +651,9 @@ class _NoteEditorState extends State<NoteEditor> {
       onTapLink: (text, href, title) {
         if (href != null) unawaited(_onLink(href));
       },
-      imageBuilder: (uri, title, alt) {
+      sizedImageBuilder: (config) {
+        final uri = config.uri;
+        final alt = config.alt;
         if (uri.scheme == fileScheme) {
           final f = idx.files.where((x) => x.id == uri.path).firstOrNull;
           if (f != null) {

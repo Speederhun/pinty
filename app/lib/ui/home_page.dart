@@ -141,7 +141,7 @@ class _Sidebar extends StatelessWidget {
 }
 
 class ThemeMenu extends StatelessWidget {
-  const ThemeMenu({required this.state});
+  const ThemeMenu({super.key, required this.state});
   final AppState state;
 
   @override

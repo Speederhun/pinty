@@ -225,7 +225,7 @@ ImportResult importBitwardenJson(String text) {
       continue;
     }
     final type = raw['type'];
-    final folder = (folders[raw['folderId']] as String?) ?? '';
+    final folder = folders[raw['folderId']] ?? '';
     final name = (raw['name'] as String?) ?? 'Névtelen';
     final notes = (raw['notes'] as String?) ?? '';
     final fav = raw['favorite'] == true;
