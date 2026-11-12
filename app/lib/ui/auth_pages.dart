@@ -90,6 +90,88 @@ class _WelcomePageState extends State<WelcomePage> {
     super.dispose();
   }
 
+  Future<void> _recover() async {
+    final s = widget.state;
+    final server = TextEditingController(text: _server.text);
+    final email = TextEditingController(text: _email.text);
+    final key = TextEditingController();
+    final p1 = TextEditingController();
+    final p2 = TextEditingController();
+    String? err;
+    var working = false;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: const Text('Visszaállítás kulccsal'),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Text('Add meg a fiókod visszaállító kulcsát és az új mesterjelszót. A széfed tartalma megmarad.'),
+                const SizedBox(height: 12),
+                TextField(controller: server, decoration: const InputDecoration(labelText: 'Szerver címe')),
+                const SizedBox(height: 12),
+                TextField(controller: email, decoration: const InputDecoration(labelText: 'E-mail cím')),
+                const SizedBox(height: 12),
+                TextField(controller: key, decoration: const InputDecoration(labelText: 'Visszaállító kulcs', hintText: 'XXXX-XXXX-…')),
+                const SizedBox(height: 12),
+                TextField(controller: p1, obscureText: true, decoration: const InputDecoration(labelText: 'Új mesterjelszó (legalább 12 karakter)')),
+                const SizedBox(height: 12),
+                TextField(controller: p2, obscureText: true, decoration: const InputDecoration(labelText: 'Új mesterjelszó újra')),
+                if (err != null) ...[
+                  const SizedBox(height: 8),
+                  Text(err!, style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
+                ],
+              ]),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: working ? null : () => Navigator.pop(ctx), child: const Text('Mégse')),
+            FilledButton(
+              onPressed: working
+                  ? null
+                  : () async {
+                      if (server.text.trim().isEmpty || email.text.trim().isEmpty || key.text.trim().isEmpty) {
+                        setS(() => err = 'Tölts ki minden mezőt.');
+                        return;
+                      }
+                      if (p1.text.length < 12) {
+                        setS(() => err = 'Az új mesterjelszó legyen legalább 12 karakter.');
+                        return;
+                      }
+                      if (p1.text != p2.text) {
+                        setS(() => err = 'A két jelszó nem egyezik.');
+                        return;
+                      }
+                      setS(() {
+                        working = true;
+                        err = null;
+                      });
+                      await s.recoverAccount(
+                        serverUrl: server.text,
+                        email: email.text,
+                        recoveryKey: key.text,
+                        newPassword: p1.text,
+                      );
+                      if (s.error != null) {
+                        setS(() {
+                          working = false;
+                          err = s.error;
+                        });
+                      } else if (ctx.mounted) {
+                        Navigator.pop(ctx);
+                      }
+                    },
+              child: Text(working ? 'Folyamatban…' : 'Visszaállítás'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _submit() {
     final s = widget.state;
     setState(() => _localError = null);
@@ -174,7 +256,7 @@ class _WelcomePageState extends State<WelcomePage> {
           ),
           const SizedBox(height: 12),
           Text(
-            'A mesterjelszót elfelejtve a széf nem állítható vissza, mert a szerver sem ismeri. Jegyezd meg, vagy tárold biztonságos helyen.',
+            'A mesterjelszót a szerver sem ismeri. Jegyezd meg, és a belépés után készíts visszaállító kulcsot is.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
@@ -186,6 +268,10 @@ class _WelcomePageState extends State<WelcomePage> {
               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
               : Text(_isNew ? 'Fiók létrehozása' : 'Bejelentkezés'),
         ),
+        if (!_isNew) ...[
+          const SizedBox(height: 8),
+          TextButton(onPressed: s.busy ? null : _recover, child: const Text('Elfelejtetted a mesterjelszót?')),
+        ],
       ]),
     );
   }
@@ -202,6 +288,15 @@ class UnlockPage extends StatefulWidget {
 
 class _UnlockPageState extends State<UnlockPage> {
   final _pass = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Ha be van kapcsolva a biometrikus feloldás, rögtön felajánljuk.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.state.biometricEnabled && !widget.state.busy) widget.state.unlockBiometric();
+    });
+  }
 
   @override
   void dispose() {
@@ -252,6 +347,14 @@ class _UnlockPageState extends State<UnlockPage> {
               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
               : const Text('Feloldás'),
         ),
+        if (s.biometricEnabled) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: s.busy ? null : s.unlockBiometric,
+            icon: const Icon(Icons.fingerprint),
+            label: const Text('Feloldás biometrikusan'),
+          ),
+        ],
         const SizedBox(height: 8),
         TextButton(onPressed: s.busy ? null : _signOut, child: const Text('Kijelentkezés ezen az eszközön')),
       ]),

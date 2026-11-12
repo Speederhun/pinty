@@ -58,6 +58,10 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/login", s.handleLogin)
 	mux.HandleFunc("POST /api/v1/logout", s.auth(s.handleLogout))
 	mux.HandleFunc("POST /api/v1/password", s.auth(s.handleChangePassword))
+	mux.HandleFunc("GET /api/v1/recovery", s.auth(s.handleRecoveryStatus))
+	mux.HandleFunc("PUT /api/v1/recovery", s.auth(s.handleSetRecovery))
+	mux.HandleFunc("POST /api/v1/recover/fetch", s.handleRecoverFetch)
+	mux.HandleFunc("POST /api/v1/recover/reset", s.handleRecoverReset)
 	mux.HandleFunc("GET /api/v1/sync", s.auth(s.handleSync))
 	mux.HandleFunc("PUT /api/v1/items/{id}", s.auth(s.handlePutItem))
 	mux.HandleFunc("DELETE /api/v1/items/{id}", s.auth(s.handleDeleteItem))
@@ -438,4 +442,126 @@ func (s *server) writeItem(w http.ResponseWriter, uid, id, blob string, base int
 	default:
 		writeJSON(w, 200, map[string]any{"id": id, "rev": rev})
 	}
+}
+
+// ---------- visszaállító kulcs ----------
+
+type setRecoveryReq struct {
+	RecoveryAuth    string `json:"recovery_auth"`
+	RecoveryWrapped string `json:"recovery_wrapped"`
+}
+
+func (s *server) handleRecoveryStatus(w http.ResponseWriter, r *http.Request, uid, _ string) {
+	ok, err := s.st.hasRecovery(uid)
+	if err != nil {
+		writeErr(w, 500, "szerverhiba")
+		return
+	}
+	writeJSON(w, 200, map[string]bool{"enabled": ok})
+}
+
+// handleSetRecovery: a bejelentkezett felhasználó beállítja (vagy lecseréli) a visszaállító kulcsát.
+// A szerver csak a kulcsból származtatott bizonyítékot (lenyomatként) és a széfkulcs titkosított
+// másolatát kapja meg; magát a visszaállító kulcsot soha.
+func (s *server) handleSetRecovery(w http.ResponseWriter, r *http.Request, uid, _ string) {
+	if !s.authLim.allow("rs:" + uid) {
+		writeErr(w, http.StatusTooManyRequests, "túl sok próbálkozás")
+		return
+	}
+	var req setRecoveryReq
+	if !decode(w, r, &req) {
+		return
+	}
+	if !validAuthHash(req.RecoveryAuth) || req.RecoveryWrapped == "" || len(req.RecoveryWrapped) > 1024 {
+		writeErr(w, http.StatusBadRequest, "érvénytelen adatok")
+		return
+	}
+	salt := make([]byte, 16)
+	_, _ = rand.Read(salt)
+	if err := s.st.setRecovery(uid, hashAuth(req.RecoveryAuth, salt), req.RecoveryWrapped); err != nil {
+		writeErr(w, 500, "szerverhiba")
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "ok"})
+}
+
+type recoverFetchReq struct {
+	Email        string `json:"email"`
+	RecoveryAuth string `json:"recovery_auth"`
+}
+
+// recoverUser ellenőrzi az e-mail + visszaállító bizonyíték párost. Ismeretlen e-mail, hiányzó vagy
+// hibás kulcs esetén ugyanazt a hibát adja, hogy ne lehessen vele fiókokat kitapogatni.
+func (s *server) recoverUser(w http.ResponseWriter, r *http.Request, email, proof string) (*user, string, bool) {
+	ip := s.clientIP(r)
+	email = normEmail(email)
+	if !s.authLim.allow("rec:"+ip) || !s.authLim.allow("rec:"+email) {
+		writeErr(w, http.StatusTooManyRequests, "túl sok próbálkozás")
+		return nil, "", false
+	}
+	if !emailRe.MatchString(email) || !validAuthHash(proof) {
+		writeErr(w, http.StatusBadRequest, "érvénytelen adatok")
+		return nil, "", false
+	}
+	fail := func() (*user, string, bool) {
+		writeErr(w, http.StatusUnauthorized, "hibás e-mail vagy visszaállító kulcs")
+		return nil, "", false
+	}
+	u, err := s.st.userByEmail(email)
+	if err != nil {
+		// időzítés kiegyenlítése: ugyanannyi munkát végzünk ismeretlen e-mailnél is
+		verifyAuth(proof, hashAuth("x", make([]byte, 16)))
+		return fail()
+	}
+	stored, wrapped, err := s.st.getRecovery(u.ID)
+	if err != nil || !verifyAuth(proof, stored) {
+		if err != nil {
+			verifyAuth(proof, hashAuth("x", make([]byte, 16)))
+		}
+		return fail()
+	}
+	return u, wrapped, true
+}
+
+func (s *server) handleRecoverFetch(w http.ResponseWriter, r *http.Request) {
+	var req recoverFetchReq
+	if !decode(w, r, &req) {
+		return
+	}
+	_, wrapped, ok := s.recoverUser(w, r, req.Email, req.RecoveryAuth)
+	if !ok {
+		return
+	}
+	writeJSON(w, 200, map[string]string{"recovery_wrapped": wrapped})
+}
+
+type recoverResetReq struct {
+	Email         string    `json:"email"`
+	RecoveryAuth  string    `json:"recovery_auth"`
+	NewAuthHash   string    `json:"new_auth_hash"`
+	NewKDF        kdfParams `json:"new_kdf"`
+	NewWrappedKey string    `json:"new_wrapped_key"`
+}
+
+// handleRecoverReset: új mesterjelszó beállítása a visszaállító kulccsal. Minden munkamenet megszűnik.
+func (s *server) handleRecoverReset(w http.ResponseWriter, r *http.Request) {
+	var req recoverResetReq
+	if !decode(w, r, &req) {
+		return
+	}
+	if !validAuthHash(req.NewAuthHash) || !validKDF(req.NewKDF) || req.NewWrappedKey == "" || len(req.NewWrappedKey) > 1024 {
+		writeErr(w, http.StatusBadRequest, "érvénytelen adatok")
+		return
+	}
+	u, _, ok := s.recoverUser(w, r, req.Email, req.RecoveryAuth)
+	if !ok {
+		return
+	}
+	salt := make([]byte, 16)
+	_, _ = rand.Read(salt)
+	if err := s.st.updateCredentials(u.ID, hashAuth(req.NewAuthHash, salt), req.NewWrappedKey, req.NewKDF, ""); err != nil {
+		writeErr(w, 500, "szerverhiba")
+		return
+	}
+	writeJSON(w, 200, map[string]string{"status": "ok"})
 }

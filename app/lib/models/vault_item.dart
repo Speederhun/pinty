@@ -5,6 +5,10 @@ class ItemKind {
   static const login = 'login';
   static const note = 'note';
   static const file = 'file';
+
+  /// Üres (vagy bármilyen) mappa külön elemként: a `name` a teljes útvonal, a `scope` pedig
+  /// `login` vagy `note`.
+  static const folder = 'folder';
 }
 
 class VaultItem {
@@ -15,6 +19,9 @@ class VaultItem {
     this.tags = const [],
     this.mime = '',
     this.data = '',
+    this.scope = '',
+    this.trashedAt,
+    List<PasswordChange>? history,
     this.username = '',
     this.password = '',
     this.url = '',
@@ -24,7 +31,8 @@ class VaultItem {
     this.favorite = false,
     DateTime? updatedAt,
     this.rev = 0,
-  }) : updatedAt = updatedAt ?? DateTime.now().toUtc();
+  })  : updatedAt = updatedAt ?? DateTime.now().toUtc(),
+        history = history ?? [];
 
   final String id;
   String name;
@@ -38,6 +46,29 @@ class VaultItem {
   /// Csatolt fájlnál: MIME típus és a tartalom base64-ben.
   String mime;
   String data;
+
+  /// Mappa-elemnél: melyik részhez tartozik (`login` vagy `note`).
+  String scope;
+
+  /// Ha be van állítva, az elem a kukában van (30 nap után véglegesen törlődik).
+  DateTime? trashedAt;
+
+  /// A korábbi jelszavak (legújabb elöl).
+  List<PasswordChange> history;
+
+  bool get inTrash => trashedAt != null;
+
+  static const maxHistory = 20;
+
+  /// Új jelszó beállítása: ha változott, a régi bekerül az előzményekbe.
+  void setPassword(String next) {
+    if (next == password) return;
+    if (password.isNotEmpty) {
+      history.insert(0, PasswordChange(password, DateTime.now().toUtc()));
+      if (history.length > maxHistory) history.removeRange(maxHistory, history.length);
+    }
+    password = next;
+  }
   String username;
   String password;
   String url;
@@ -58,6 +89,9 @@ class VaultItem {
         if (tags.isNotEmpty) 'tags': tags,
         if (mime.isNotEmpty) 'mime': mime,
         if (data.isNotEmpty) 'data': data,
+        if (scope.isNotEmpty) 'scope': scope,
+        if (trashedAt != null) 'trashedAt': trashedAt!.toIso8601String(),
+        if (history.isNotEmpty) 'history': [for (final h in history) h.toJson()],
         'username': username,
         'password': password,
         'url': url,
@@ -74,6 +108,12 @@ class VaultItem {
         tags: ((j['tags'] as List?) ?? const []).whereType<String>().toList(),
         mime: (j['mime'] as String?) ?? '',
         data: (j['data'] as String?) ?? '',
+        scope: (j['scope'] as String?) ?? '',
+        trashedAt: DateTime.tryParse((j['trashedAt'] as String?) ?? ''),
+        history: [
+          for (final h in (j['history'] as List?) ?? const [])
+            if (h is Map<String, dynamic>) PasswordChange.fromJson(h)
+        ],
         name: (j['name'] as String?) ?? '',
         username: (j['username'] as String?) ?? '',
         password: (j['password'] as String?) ?? '',
@@ -84,5 +124,19 @@ class VaultItem {
         favorite: (j['favorite'] as bool?) ?? false,
         updatedAt: DateTime.tryParse((j['updatedAt'] as String?) ?? ''),
         rev: rev,
+      );
+}
+
+/// Egy korábbi jelszó és a lecserélésének ideje.
+class PasswordChange {
+  PasswordChange(this.password, this.changedAt);
+  final String password;
+  final DateTime changedAt;
+
+  Map<String, dynamic> toJson() => {'p': password, 'at': changedAt.toIso8601String()};
+
+  factory PasswordChange.fromJson(Map<String, dynamic> j) => PasswordChange(
+        (j['p'] as String?) ?? '',
+        DateTime.tryParse((j['at'] as String?) ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
       );
 }

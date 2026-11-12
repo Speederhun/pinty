@@ -141,9 +141,10 @@ String _esc(String s) => s.replaceAll(r'\', r'\\').replaceAll('[', r'\[').replac
 
 /// A jegyzetek kapcsolatai: címfeloldás, visszahivatkozások, címkék, mappák.
 class NoteIndex {
-  NoteIndex(Iterable<VaultItem> notes, [Iterable<VaultItem> files = const []])
+  NoteIndex(Iterable<VaultItem> notes, [Iterable<VaultItem> files = const [], Iterable<String> extraFolders = const []])
       : notes = List.unmodifiable(notes),
-        files = List.unmodifiable(files) {
+        files = List.unmodifiable(files),
+        _extraFolders = List.unmodifiable(extraFolders) {
     for (final n in this.notes) {
       _byTitle.putIfAbsent(_key(n.name), () => n);
     }
@@ -171,6 +172,7 @@ class NoteIndex {
 
   final List<VaultItem> notes;
   final List<VaultItem> files;
+  final List<String> _extraFolders;
   final Map<String, VaultItem> _byTitle = {};
   final Map<String, VaultItem> _fileByName = {};
   final Map<String, Set<String>> _outgoing = {};
@@ -242,7 +244,7 @@ class NoteIndex {
   /// A mappák (egyediek, betűrendben); a beágyazottak `a/b` alakban.
   List<String> get folders {
     final set = <String>{};
-    for (final n in notes) {
+    for (final n in [...notes, ..._extraFolders.map((p) => VaultItem(id: '', name: '', folder: p))]) {
       var f = n.folder.trim();
       while (f.isNotEmpty) {
         set.add(f);

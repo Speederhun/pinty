@@ -280,3 +280,55 @@ func TestInviteCodeFormat(t *testing.T) {
 		t.Fatal("a normalizált lenyomatnak egyeznie kell")
 	}
 }
+
+func TestRecoveryKey(t *testing.T) {
+	e := newTestEnv(t, false)
+	if code, _ := e.do("POST", "/api/v1/register", "", regBody("r@example.com", 1)); code != 201 {
+		t.Fatalf("register: %d", code)
+	}
+	tok := login(e, "r@example.com", 1)
+
+	if code, out := e.do("GET", "/api/v1/recovery", tok, nil); code != 200 || out["enabled"] != false {
+		t.Fatalf("státusz: %d %v", code, out)
+	}
+	// kulcs nélkül nem lehet visszaállítani
+	if code, _ := e.do("POST", "/api/v1/recover/fetch", "", map[string]any{"email": "r@example.com", "recovery_auth": b64(32, 7)}); code != 401 {
+		t.Fatalf("beállítás előtt: %d, várt 401", code)
+	}
+	if code, _ := e.do("PUT", "/api/v1/recovery", tok, map[string]any{"recovery_auth": b64(32, 7), "recovery_wrapped": "rw"}); code != 200 {
+		t.Fatalf("beállítás: %d", code)
+	}
+	if code, out := e.do("GET", "/api/v1/recovery", tok, nil); code != 200 || out["enabled"] != true {
+		t.Fatalf("státusz beállítás után: %d %v", code, out)
+	}
+
+	// rossz kulcs és ismeretlen e-mail ugyanazt a választ adja
+	if code, _ := e.do("POST", "/api/v1/recover/fetch", "", map[string]any{"email": "r@example.com", "recovery_auth": b64(32, 8)}); code != 401 {
+		t.Fatalf("rossz kulcs: %d", code)
+	}
+	if code, _ := e.do("POST", "/api/v1/recover/fetch", "", map[string]any{"email": "nincs@example.com", "recovery_auth": b64(32, 7)}); code != 401 {
+		t.Fatalf("ismeretlen e-mail: %d", code)
+	}
+	code, out := e.do("POST", "/api/v1/recover/fetch", "", map[string]any{"email": "R@Example.com", "recovery_auth": b64(32, 7)})
+	if code != 200 || out["recovery_wrapped"] != "rw" {
+		t.Fatalf("lekérés: %d %v", code, out)
+	}
+
+	// új jelszó beállítása
+	reset := map[string]any{
+		"email": "r@example.com", "recovery_auth": b64(32, 7),
+		"new_auth_hash": b64(32, 2), "new_wrapped_key": "wrapped2",
+		"new_kdf": map[string]any{"salt": b64(16, 3), "memory_kib": 19456, "iterations": 2, "parallelism": 1},
+	}
+	if code, o := e.do("POST", "/api/v1/recover/reset", "", reset); code != 200 {
+		t.Fatalf("visszaállítás: %d %v", code, o)
+	}
+	if code, _ := e.do("POST", "/api/v1/login", "", map[string]any{"email": "r@example.com", "auth_hash": b64(32, 1)}); code != 401 {
+		t.Fatalf("a régi jelszó még működik: %d", code)
+	}
+	login(e, "r@example.com", 2)
+	// a régi munkamenet megszűnt
+	if code, _ := e.do("GET", "/api/v1/sync", tok, nil); code != 401 {
+		t.Fatalf("a régi token még él: %d", code)
+	}
+}

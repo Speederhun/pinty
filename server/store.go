@@ -68,6 +68,12 @@ CREATE TABLE IF NOT EXISTS items (
 	PRIMARY KEY (user_id, id)
 );
 CREATE INDEX IF NOT EXISTS items_rev ON items (user_id, rev);
+CREATE TABLE IF NOT EXISTS recovery (
+	user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+	auth_stored TEXT NOT NULL,
+	wrapped_key TEXT NOT NULL,
+	created_at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS invites (
 	code_hash TEXT PRIMARY KEY,
 	email TEXT NOT NULL,
@@ -315,4 +321,28 @@ func (s *store) putItem(userID, id, blob string, baseRev int64, deleted bool) (i
 		return 0, nil, err
 	}
 	return newRev, nil, tx.Commit()
+}
+
+// ---------- visszaállító kulcs ----------
+
+// setRecovery elmenti (vagy lecseréli) a visszaállító kulcshoz tartozó adatokat.
+func (s *store) setRecovery(userID, authStored, wrappedKey string) error {
+	_, err := s.db.Exec(`INSERT INTO recovery (user_id, auth_stored, wrapped_key, created_at) VALUES (?,?,?,?)
+		ON CONFLICT(user_id) DO UPDATE SET auth_stored=excluded.auth_stored, wrapped_key=excluded.wrapped_key, created_at=excluded.created_at`,
+		userID, authStored, wrappedKey, time.Now().Unix())
+	return err
+}
+
+func (s *store) hasRecovery(userID string) (bool, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM recovery WHERE user_id=?`, userID).Scan(&n)
+	return n > 0, err
+}
+
+func (s *store) getRecovery(userID string) (authStored, wrappedKey string, err error) {
+	err = s.db.QueryRow(`SELECT auth_stored, wrapped_key FROM recovery WHERE user_id=?`, userID).Scan(&authStored, &wrappedKey)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", "", errNotFound
+	}
+	return
 }

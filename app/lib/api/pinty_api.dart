@@ -61,6 +61,22 @@ abstract class RemoteApi {
   Future<int> putItem(String id, String blob, int baseRev);
   Future<int> deleteItem(String id, int baseRev);
   Future<void> logout();
+  Future<void> changePassword({
+    required String authHash,
+    required String newAuthHash,
+    required KdfParams newKdf,
+    required String newWrappedKey,
+  });
+  Future<bool> recoveryEnabled();
+  Future<void> setRecovery(String recoveryAuth, String recoveryWrapped);
+  Future<String> recoverFetch(String email, String recoveryAuth);
+  Future<void> recoverReset({
+    required String email,
+    required String recoveryAuth,
+    required String newAuthHash,
+    required KdfParams newKdf,
+    required String newWrappedKey,
+  });
 }
 
 /// A Pinty szinkron-szerver kliense. Csak titkosított adat és auth hash megy ki.
@@ -166,5 +182,73 @@ class PintyApi implements RemoteApi {
   Future<void> logout() async {
     await _http.post(_u('logout'), headers: _headers);
     token = null;
+  }
+
+  @override
+  Future<void> changePassword({
+    required String authHash,
+    required String newAuthHash,
+    required KdfParams newKdf,
+    required String newWrappedKey,
+  }) async {
+    final r = await _http.post(
+      _u('password'),
+      headers: _headers,
+      body: jsonEncode({
+        'auth_hash': authHash,
+        'new_auth_hash': newAuthHash,
+        'new_kdf': newKdf.toJson(),
+        'new_wrapped_key': newWrappedKey,
+      }),
+    );
+    _check(r);
+  }
+
+  @override
+  Future<bool> recoveryEnabled() async {
+    final r = await _http.get(_u('recovery'), headers: _headers);
+    return (_check(r)['enabled'] as bool?) ?? false;
+  }
+
+  @override
+  Future<void> setRecovery(String recoveryAuth, String recoveryWrapped) async {
+    final r = await _http.put(
+      _u('recovery'),
+      headers: _headers,
+      body: jsonEncode({'recovery_auth': recoveryAuth, 'recovery_wrapped': recoveryWrapped}),
+    );
+    _check(r);
+  }
+
+  @override
+  Future<String> recoverFetch(String email, String recoveryAuth) async {
+    final r = await _http.post(
+      _u('recover/fetch'),
+      headers: _headers,
+      body: jsonEncode({'email': email, 'recovery_auth': recoveryAuth}),
+    );
+    return _check(r)['recovery_wrapped'] as String;
+  }
+
+  @override
+  Future<void> recoverReset({
+    required String email,
+    required String recoveryAuth,
+    required String newAuthHash,
+    required KdfParams newKdf,
+    required String newWrappedKey,
+  }) async {
+    final r = await _http.post(
+      _u('recover/reset'),
+      headers: _headers,
+      body: jsonEncode({
+        'email': email,
+        'recovery_auth': recoveryAuth,
+        'new_auth_hash': newAuthHash,
+        'new_kdf': newKdf.toJson(),
+        'new_wrapped_key': newWrappedKey,
+      }),
+    );
+    _check(r);
   }
 }

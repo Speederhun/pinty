@@ -8,6 +8,7 @@ import '../app_state.dart';
 import '../models/vault_item.dart';
 import '../theme/pinty_theme.dart';
 import '../util/totp.dart';
+import 'folder_manager.dart';
 import 'generator_dialog.dart';
 
 class PasswordsPage extends StatelessWidget {
@@ -165,6 +166,9 @@ class _ItemList extends StatefulWidget {
 
 class _ItemListState extends State<_ItemList> {
   final _search = TextEditingController();
+  String? _folder;
+  String? _tag;
+  bool _favs = false;
 
   @override
   void dispose() {
@@ -176,11 +180,17 @@ class _ItemListState extends State<_ItemList> {
   Widget build(BuildContext context) {
     final state = widget.state;
     final q = _search.text.trim().toLowerCase();
+    final folders = state.foldersFor('login');
+    final allTags = (<String>{for (final i in state.items) ...i.tags}.toList()..sort());
     final shown = state.items.where((i) {
+      if (_favs && !i.favorite) return false;
+      if (_folder != null && i.folder != _folder && !i.folder.startsWith('$_folder/')) return false;
+      if (_tag != null && !i.tags.contains(_tag)) return false;
       if (q.isEmpty) return true;
       return i.name.toLowerCase().contains(q) ||
           i.username.toLowerCase().contains(q) ||
-          i.url.toLowerCase().contains(q);
+          i.url.toLowerCase().contains(q) ||
+          i.tags.any((t) => t.toLowerCase().contains(q));
     }).toList();
 
     return Column(children: [
@@ -194,6 +204,67 @@ class _ItemListState extends State<_ItemList> {
             prefixIcon: Icon(Icons.search),
             isDense: true,
           ),
+        ),
+      ),
+      SizedBox(
+        height: 44,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: FilterChip(
+                avatar: const Icon(Icons.star_outline, size: 16),
+                label: const Text('Kedvencek'),
+                selected: _favs,
+                onSelected: (v) => setState(() => _favs = v),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: ActionChip(
+                avatar: const Icon(Icons.folder_open, size: 16),
+                label: const Text('Mappák…'),
+                onPressed: () async {
+                  final picked = await showFolderManager(context, state, 'login');
+                  if (picked != null && mounted) setState(() => _folder = picked.isEmpty ? null : picked);
+                },
+              ),
+            ),
+            if (_folder != null || _tag != null || _favs)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: ActionChip(
+                  avatar: const Icon(Icons.clear, size: 16),
+                  label: const Text('Szűrők törlése'),
+                  onPressed: () => setState(() {
+                    _folder = null;
+                    _tag = null;
+                    _favs = false;
+                  }),
+                ),
+              ),
+            for (final f in folders)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: FilterChip(
+                  avatar: const Icon(Icons.folder_outlined, size: 16),
+                  label: Text(f),
+                  selected: _folder == f,
+                  onSelected: (v) => setState(() => _folder = v ? f : null),
+                ),
+              ),
+            for (final t in allTags)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: FilterChip(
+                  label: Text('#$t'),
+                  selected: _tag == t,
+                  onSelected: (v) => setState(() => _tag = v ? t : null),
+                ),
+              ),
+          ],
         ),
       ),
       Expanded(
@@ -210,7 +281,8 @@ class _ItemListState extends State<_ItemList> {
                           child: Text(it.name.isEmpty ? '?' : it.name[0].toUpperCase()),
                         ),
                         title: Text(it.name),
-                        subtitle: Text(it.username),
+                        subtitle: Text([if (it.folder.isNotEmpty) it.folder, it.username].where((s) => s.isNotEmpty).join(' · ')),
+                        trailing: it.favorite ? const Icon(Icons.star, size: 18, color: Color(0xFFF2B632)) : null,
                         onTap: () {
                           state.select(it.id);
                           if (!widget.wide) {
@@ -262,16 +334,16 @@ class _DetailBodyState extends State<_DetailBody> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Törlés'),
-        content: Text('Biztosan törlöd: ${widget.item.name}?'),
+        title: const Text('Elem a kukába'),
+        content: Text('A(z) „${widget.item.name}” 30 napig a kukában marad, onnan visszaállítható.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Mégse')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Törlés')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Kukába')),
         ],
       ),
     );
     if (ok != true) return;
-    await widget.state.deleteItem(widget.item.id);
+    await widget.state.trashItem(widget.item);
     if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
   }
 
@@ -285,7 +357,7 @@ class _DetailBodyState extends State<_DetailBody> {
           onPressed: () => _edit(context, widget.state, it),
           child: const Text('Szerkesztés'),
         ),
-        IconButton(tooltip: 'Törlés', onPressed: _delete, icon: const Icon(Icons.delete_outline)),
+        IconButton(tooltip: 'Kukába', onPressed: _delete, icon: const Icon(Icons.delete_outline)),
       ]),
       const SizedBox(height: 16),
       Card(
@@ -301,9 +373,36 @@ class _DetailBodyState extends State<_DetailBody> {
             ),
           ),
           _Row(label: 'Weboldal', value: it.url),
+          if (it.folder.isNotEmpty) _Row(label: 'Mappa', value: it.folder),
+          if (it.tags.isNotEmpty)
+            ListTile(
+              title: Text('Címkék', style: Theme.of(context).textTheme.labelMedium),
+              subtitle: Wrap(spacing: 6, children: [for (final t in it.tags) Chip(label: Text('#$t'))]),
+            ),
           if (it.totpSecret.trim().isNotEmpty) _TotpTile(secret: it.totpSecret),
         ]),
       ),
+      if (it.history.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        Card(
+          child: ExpansionTile(
+            title: Text('Jelszó-előzmények (${it.history.length})'),
+            children: [
+              for (final h in it.history)
+                ListTile(
+                  dense: true,
+                  title: Text(_show ? h.password : '••••••••••••'),
+                  subtitle: Text('Lecserélve: ${h.changedAt.toLocal().toString().substring(0, 16)}'),
+                  trailing: IconButton(
+                    tooltip: 'Másolás',
+                    icon: const Icon(Icons.copy_outlined, size: 18),
+                    onPressed: () => copySecret(h.password),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
       const SizedBox(height: 16),
       Card(
         child: Padding(
@@ -415,6 +514,9 @@ Future<void> _edit(BuildContext context, AppState state, [VaultItem? existing]) 
   final url = TextEditingController(text: existing?.url);
   final totp = TextEditingController(text: existing?.totpSecret);
   final notes = TextEditingController(text: existing?.notes);
+  final folder = TextEditingController(text: existing?.folder);
+  final tags = TextEditingController(text: existing?.tags.join(', '));
+  var favorite = existing?.favorite ?? false;
 
   final ok = await showDialog<bool>(
     context: context,
@@ -454,6 +556,34 @@ Future<void> _edit(BuildContext context, AppState state, [VaultItem? existing]) 
             ),
             const SizedBox(height: 12),
             TextField(
+              controller: folder,
+              decoration: InputDecoration(
+                labelText: 'Mappa',
+                suffixIcon: IconButton(
+                  tooltip: 'Mappa kiválasztása',
+                  icon: const Icon(Icons.drive_file_move_outline),
+                  onPressed: () async {
+                    final picked = await pickFolder(ctx, state, 'login', folder.text);
+                    if (picked != null) folder.text = picked;
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: tags,
+              decoration: const InputDecoration(labelText: 'Címkék', helperText: 'Vesszővel elválasztva'),
+            ),
+            StatefulBuilder(
+              builder: (ctx, setS) => SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Kedvenc'),
+                value: favorite,
+                onChanged: (v) => setS(() => favorite = v),
+              ),
+            ),
+            const SizedBox(height: 4),
+            TextField(
               controller: notes,
               minLines: 3,
               maxLines: 8,
@@ -476,14 +606,23 @@ Future<void> _edit(BuildContext context, AppState state, [VaultItem? existing]) 
     url: url.text,
     totp: totp.text.trim(),
     notes: notes.text,
+    folder: AppState.cleanPath(folder.text),
+    tags: [
+      for (final t in tags.text.split(',').map((s) => s.trim().replaceAll(RegExp(r'^#+'), '')))
+        if (t.isNotEmpty) t
+    ],
+    favorite: favorite,
   );
   if (ok != true || values.name.isEmpty) return;
 
   final item = existing ?? VaultItem(id: const Uuid().v4(), name: values.name);
   item
+    ..setPassword(values.pass)
     ..name = values.name
     ..username = values.user
-    ..password = values.pass
+    ..folder = values.folder
+    ..tags = values.tags
+    ..favorite = values.favorite
     ..url = values.url
     ..totpSecret = values.totp
     ..notes = values.notes;

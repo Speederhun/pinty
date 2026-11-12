@@ -4,12 +4,32 @@ import '../app_state.dart';
 import '../theme/pinty_theme.dart';
 import 'home_page.dart';
 import 'notes_page.dart';
+import 'settings_page.dart';
 
 /// A bejelentkezés utáni keret: két fül (Jelszavak / Jegyzetek).
 /// Széles képernyőn keskeny oldalsáv, telefonon alsó fülsor.
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.state});
   final AppState state;
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  AppState get state => widget.state;
+
+  @override
+  void initState() {
+    super.initState();
+    // Új fiók után egyszer felajánljuk a visszaállító kulcs elkészítését.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && state.recoveryHint) {
+        state.recoveryHint = false;
+        showRecoverySetup(context, state);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,6 +37,7 @@ class HomePage extends StatelessWidget {
     final pages = IndexedStack(index: state.tab, children: [
       PasswordsPage(state: state),
       NotesPage(state: state),
+      SettingsPage(state: state),
     ]);
     return LayoutBuilder(builder: (context, c) {
       if (c.maxWidth >= 900) {
@@ -36,6 +57,8 @@ class HomePage extends StatelessWidget {
             NavigationDestination(icon: Icon(Icons.key_outlined), selectedIcon: Icon(Icons.key), label: 'Jelszavak'),
             NavigationDestination(
                 icon: Icon(Icons.edit_note_outlined), selectedIcon: Icon(Icons.edit_note), label: 'Jegyzetek'),
+            NavigationDestination(
+                icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Beállítások'),
           ],
         ),
       );
@@ -79,6 +102,7 @@ class _Rail extends StatelessWidget {
         const SizedBox(height: 16),
         tab(0, Icons.key, 'Jelszavak'),
         tab(1, Icons.edit_note, 'Jegyzetek'),
+        tab(2, Icons.settings, 'Beállítások'),
         const Spacer(),
         IconButton(
             tooltip: 'Szinkronizálás', color: Colors.white70, onPressed: state.sync, icon: const Icon(Icons.sync)),

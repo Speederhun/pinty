@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:isolate';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
@@ -85,6 +86,45 @@ class VaultCrypto {
       return (await keys.encKey.extractBytes(), keys.authHash);
     });
     return MasterKeys(SecretKey(result.$1), result.$2);
+  }
+
+  /// Biztonsági mentés kulcsa a mentés jelszavából (külön "info", így nem keverhető a fiók kulcsaival).
+  static Future<SecretKey> deriveBackupKey(String password, KdfParams kdf) async {
+    final argon = Argon2id(
+      parallelism: kdf.parallelism,
+      memory: kdf.memoryKiB,
+      iterations: kdf.iterations,
+      hashLength: 32,
+    );
+    final stretched = await argon.deriveKey(secretKey: SecretKey(utf8.encode(password)), nonce: kdf.salt);
+    return Hkdf(hmac: Hmac.sha256(), outputLength: 32)
+        .deriveKey(secretKey: stretched, nonce: const <int>[], info: utf8.encode('pinty-backup-v1'));
+  }
+
+  static Future<SecretKey> deriveBackupKeyAsync(String password, KdfParams kdf) async {
+    final bytes = await Isolate.run(() async => (await deriveBackupKey(password, kdf)).extractBytes());
+    return SecretKey(bytes);
+  }
+
+  /// A 256 bites visszaállító kulcsból két érték: a széfkulcs becsomagolásához használt kulcs, és a
+  /// szervernek küldött bizonyíték (base64). A kettő egymásból nem számolható ki.
+  static Future<(SecretKey, String)> deriveRecovery(List<int> recoveryKey) async {
+    final hkdf = Hkdf(hmac: Hmac.sha256(), outputLength: 32);
+    final root = SecretKey(recoveryKey);
+    final wrap = await hkdf.deriveKey(secretKey: root, nonce: const <int>[], info: utf8.encode('pinty-recovery-enc-v1'));
+    final auth = await hkdf.deriveKey(secretKey: root, nonce: const <int>[], info: utf8.encode('pinty-recovery-auth-v1'));
+    return (wrap, base64.encode(await auth.extractBytes()));
+  }
+
+  static Future<String> wrapVaultKeyForRecovery(SecretKey vaultKey, SecretKey wrapKey) async =>
+      encryptBytes(await vaultKey.extractBytes(), wrapKey, aad: utf8.encode('vault-key-recovery'));
+
+  static Future<SecretKey> unwrapVaultKeyForRecovery(String wrapped, SecretKey wrapKey) async =>
+      SecretKey(await decryptBytes(wrapped, wrapKey, aad: utf8.encode('vault-key-recovery')));
+
+  static Uint8List randomBytes(int n) {
+    final r = Random.secure();
+    return Uint8List.fromList(List.generate(n, (_) => r.nextInt(256)));
   }
 
   /// Új, véletlen széfkulcs.

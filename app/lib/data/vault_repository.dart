@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../api/pinty_api.dart';
 import '../crypto/vault_crypto.dart';
 import '../models/vault_item.dart';
+import '../util/recovery_code.dart';
 import 'local_store.dart';
 
 class VaultException implements Exception {
@@ -65,10 +66,47 @@ class VaultRepository {
   }
 
   /// A jelszó-bejegyzések.
-  List<VaultItem> get items => _ofKind(ItemKind.login);
+  List<VaultItem> get items => _ofKind(ItemKind.login).where((i) => !i.inTrash).toList();
 
   /// A jegyzetek.
-  List<VaultItem> get notes => _ofKind(ItemKind.note);
+  List<VaultItem> get notes => _ofKind(ItemKind.note).where((i) => !i.inTrash).toList();
+
+  /// Minden nem kukás elem (jelszavak, jegyzetek, képek, mappák) mentéshez.
+  List<VaultItem> get liveItems => _items.values.where((i) => !i.inTrash).toList();
+
+  /// A kukában lévő jelszavak és jegyzetek (legutóbb törölt elöl).
+  List<VaultItem> get trash {
+    final list = _items.values.where((i) => i.inTrash && i.kind != ItemKind.file && i.kind != ItemKind.folder).toList();
+    list.sort((a, b) => b.trashedAt!.compareTo(a.trashedAt!));
+    return list;
+  }
+
+  /// Az összes (kukás is) elem egy fajtából, belső műveletekhez (pl. mappa átnevezése).
+  List<VaultItem> allOfKind(String kind) => _items.values.where((i) => i.kind == kind).toList();
+
+  /// A létrehozott mappák (üresek is) az adott részhez (`login` vagy `note`).
+  List<String> folderPaths(String scope) =>
+      (_items.values.where((i) => i.kind == ItemKind.folder && i.scope == scope).map((i) => i.name).toList()..sort());
+
+  Future<void> trashItem(VaultItem item) async {
+    item.trashedAt = DateTime.now().toUtc();
+    await upsert(item);
+  }
+
+  Future<void> restoreItem(VaultItem item) async {
+    item.trashedAt = null;
+    await upsert(item);
+  }
+
+  /// A 30 napnál régebben kukába tett elemek végleges törlése. Visszaadja, hányat törölt.
+  Future<int> purgeTrash({Duration keep = const Duration(days: 30)}) async {
+    final cutoff = DateTime.now().toUtc().subtract(keep);
+    final old = [for (final i in trash) if (i.trashedAt!.isBefore(cutoff)) i.id];
+    for (final id in old) {
+      await delete(id);
+    }
+    return old.length;
+  }
 
   /// A jegyzetekhez csatolt fájlok.
   List<VaultItem> get files => _ofKind(ItemKind.file);
@@ -177,6 +215,143 @@ class VaultRepository {
       throw VaultException('Hibás mesterjelszó.');
     }
     _keys = keys;
+    _vaultKey = vaultKey;
+    await _decryptAll(vaultKey);
+  }
+
+  // ---------- mesterjelszó, visszaállító kulcs, biometria ----------
+
+  /// Mesterjelszó cseréje. A széfkulcs változatlan marad (így a tárolt elemeket nem kell újratitkosítani),
+  /// csak a mesterkulcsból származó burkolat és a hitelesítés cserélődik. A szerver minden más
+  /// munkamenetet érvénytelenít.
+  Future<void> changeMasterPassword({required String oldPassword, required String newPassword}) async {
+    final vk = _requireKey();
+    final meta = _state.meta!;
+    final oldKeys = await VaultCrypto.deriveMasterKeysAsync(oldPassword, meta.kdf);
+    try {
+      await VaultCrypto.unwrapVaultKey(meta.wrappedKey, oldKeys.encKey);
+    } catch (_) {
+      throw VaultException('A jelenlegi mesterjelszó hibás.');
+    }
+    final newKdf = _newKdf();
+    final newKeys = await VaultCrypto.deriveMasterKeysAsync(newPassword, newKdf);
+    final newWrapped = await VaultCrypto.wrapVaultKey(vk, newKeys.encKey);
+
+    final api = apiFactory(meta.serverUrl);
+    await api.login(meta.email, oldKeys.authHash);
+    try {
+      await api.changePassword(
+        authHash: oldKeys.authHash,
+        newAuthHash: newKeys.authHash,
+        newKdf: newKdf,
+        newWrappedKey: newWrapped,
+      );
+    } finally {
+      try {
+        await api.logout();
+      } catch (_) {}
+    }
+    _state.meta = LocalMeta(serverUrl: meta.serverUrl, email: meta.email, kdf: newKdf, wrappedKey: newWrapped);
+    await store.save(_state);
+    _keys = newKeys;
+  }
+
+  /// Új visszaállító kulcs készítése és feltöltése (a régi érvénytelenné válik).
+  /// A kulcs szöveges alakját csak ez a hívás adja vissza; sehol nincs eltárolva.
+  Future<String> createRecoveryKey() async {
+    final vk = _requireKey();
+    final meta = _state.meta!;
+    final raw = VaultCrypto.randomBytes(32);
+    final (wrapKey, proof) = await VaultCrypto.deriveRecovery(raw);
+    final wrapped = await VaultCrypto.wrapVaultKeyForRecovery(vk, wrapKey);
+    final api = apiFactory(meta.serverUrl);
+    await api.login(meta.email, _keys!.authHash);
+    try {
+      await api.setRecovery(proof, wrapped);
+    } finally {
+      try {
+        await api.logout();
+      } catch (_) {}
+    }
+    return formatRecoveryKey(raw);
+  }
+
+  Future<bool> recoveryEnabled() async {
+    final meta = _state.meta!;
+    final api = apiFactory(meta.serverUrl);
+    await api.login(meta.email, _keys!.authHash);
+    try {
+      return await api.recoveryEnabled();
+    } finally {
+      try {
+        await api.logout();
+      } catch (_) {}
+    }
+  }
+
+  /// Elfelejtett mesterjelszó: a visszaállító kulccsal új mesterjelszót állít be, majd bejelentkeztet.
+  Future<void> recoverAccount({
+    required String serverUrl,
+    required String email,
+    required String recoveryKey,
+    required String newPassword,
+  }) async {
+    final url = _normUrl(serverUrl);
+    final mail = _normEmail(email);
+    final api = apiFactory(url);
+
+    final Uint8List raw;
+    try {
+      raw = parseRecoveryKey(recoveryKey);
+    } on FormatException catch (e) {
+      throw VaultException(e.message);
+    }
+    final (wrapKey, proof) = await VaultCrypto.deriveRecovery(raw);
+    final wrappedForRecovery = await api.recoverFetch(mail, proof);
+    SecretKey vk;
+    try {
+      vk = await VaultCrypto.unwrapVaultKeyForRecovery(wrappedForRecovery, wrapKey);
+    } catch (_) {
+      throw VaultException('A visszaállító kulcs nem nyitja a széfet.');
+    }
+    final newKdf = _newKdf();
+    final newKeys = await VaultCrypto.deriveMasterKeysAsync(newPassword, newKdf);
+    final newWrapped = await VaultCrypto.wrapVaultKey(vk, newKeys.encKey);
+    await api.recoverReset(
+      email: mail,
+      recoveryAuth: proof,
+      newAuthHash: newKeys.authHash,
+      newKdf: newKdf,
+      newWrappedKey: newWrapped,
+    );
+    _state = LocalState(meta: LocalMeta(serverUrl: url, email: mail, kdf: newKdf, wrappedKey: newWrapped));
+    await store.save(_state);
+    _keys = newKeys;
+    _vaultKey = vk;
+    _items.clear();
+    await sync();
+  }
+
+  /// A biometrikus feloldáshoz eltárolandó adatok (a mesterkulcs és a hitelesítő hash).
+  /// Csak feloldott állapotban hívható; a hívó felelőssége, hogy biztonságos tárolóba tegye.
+  Future<Map<String, String>> exportUnlockSecrets() async {
+    _requireKey();
+    final keys = _keys!;
+    return {'enc': base64.encode(await keys.encKey.extractBytes()), 'auth': keys.authHash};
+  }
+
+  /// Feloldás a mesterjelszó nélkül, a [exportUnlockSecrets] által adott adatokból.
+  Future<void> unlockWithSecrets(Map<String, String> secrets) async {
+    final meta = _state.meta;
+    if (meta == null) throw VaultException('Nincs beállított fiók.');
+    final enc = SecretKey(base64.decode(secrets['enc'] ?? ''));
+    SecretKey vaultKey;
+    try {
+      vaultKey = await VaultCrypto.unwrapVaultKey(meta.wrappedKey, enc);
+    } catch (_) {
+      throw VaultException('A mentett kulcs már nem érvényes. Oldd fel a mesterjelszóval.');
+    }
+    _keys = MasterKeys(enc, secrets['auth'] ?? '');
     _vaultKey = vaultKey;
     await _decryptAll(vaultKey);
   }

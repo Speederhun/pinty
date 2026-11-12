@@ -15,9 +15,11 @@ class FakeServer {
 
 class _FakeUser {
   _FakeUser(this.authHash, this.kdf, this.wrapped);
-  final String authHash;
-  final KdfParams kdf;
-  final String wrapped;
+  String authHash;
+  KdfParams kdf;
+  String wrapped;
+  String? recoveryAuth;
+  String? recoveryWrapped;
   int rev = 0;
   final items = <String, RemoteItem>{};
 }
@@ -96,4 +98,54 @@ class _FakeApi implements RemoteApi {
 
   @override
   Future<void> logout() async => _email = null;
+
+  @override
+  Future<void> changePassword({
+    required String authHash,
+    required String newAuthHash,
+    required KdfParams newKdf,
+    required String newWrappedKey,
+  }) async {
+    final u = _user;
+    if (u.authHash != authHash) throw ApiException(401, 'hibás jelszó');
+    u.authHash = newAuthHash;
+    u.kdf = newKdf;
+    u.wrapped = newWrappedKey;
+  }
+
+  @override
+  Future<bool> recoveryEnabled() async => _user.recoveryAuth != null;
+
+  @override
+  Future<void> setRecovery(String recoveryAuth, String recoveryWrapped) async {
+    final u = _user;
+    u.recoveryAuth = recoveryAuth;
+    u.recoveryWrapped = recoveryWrapped;
+  }
+
+  _FakeUser _byRecovery(String email, String proof) {
+    final u = server._users[email];
+    if (u == null || u.recoveryAuth == null || u.recoveryAuth != proof) {
+      throw ApiException(401, 'hibás e-mail vagy visszaállító kulcs');
+    }
+    return u;
+  }
+
+  @override
+  Future<String> recoverFetch(String email, String recoveryAuth) async =>
+      _byRecovery(email, recoveryAuth).recoveryWrapped!;
+
+  @override
+  Future<void> recoverReset({
+    required String email,
+    required String recoveryAuth,
+    required String newAuthHash,
+    required KdfParams newKdf,
+    required String newWrappedKey,
+  }) async {
+    final u = _byRecovery(email, recoveryAuth);
+    u.authHash = newAuthHash;
+    u.kdf = newKdf;
+    u.wrapped = newWrappedKey;
+  }
 }

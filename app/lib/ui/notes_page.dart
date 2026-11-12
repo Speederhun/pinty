@@ -11,6 +11,7 @@ import '../app_state.dart';
 import '../models/vault_item.dart';
 import '../theme/pinty_theme.dart';
 import '../util/note_logic.dart';
+import 'folder_manager.dart';
 import 'graph_page.dart';
 import 'home_page.dart' show ThemeMenu;
 
@@ -133,6 +134,11 @@ class _NotesPageState extends State<NotesPage> {
     if (mounted) _toast(context, '$ok jegyzet importálva${skipped > 0 ? ', $skipped kihagyva (túl nagy)' : ''}.');
   }
 
+  Future<void> _folders() async {
+    final picked = await showFolderManager(context, state, 'note');
+    if (picked != null && mounted) setState(() => _folder = picked.isEmpty ? null : picked);
+  }
+
   void _graph() {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => GraphPage(state: state, onOpen: _open),
@@ -159,6 +165,7 @@ class _NotesPageState extends State<NotesPage> {
         onTemplate: _fromTemplate,
         onImport: _import,
         onGraph: _graph,
+        onFolders: _folders,
         wide: wide,
       );
       if (!wide) {
@@ -230,6 +237,7 @@ class _NoteList extends StatelessWidget {
     required this.onTemplate,
     required this.onImport,
     required this.onGraph,
+    required this.onFolders,
     required this.wide,
   });
 
@@ -237,7 +245,7 @@ class _NoteList extends StatelessWidget {
   final List<VaultItem> notes;
   final TextEditingController search;
   final String? folder, tag;
-  final VoidCallback onSearch, onNew, onDaily, onTemplate, onImport, onGraph;
+  final VoidCallback onSearch, onNew, onDaily, onTemplate, onImport, onGraph, onFolders;
   final void Function(String?) onFolder, onTag;
   final void Function(String) onOpen;
   final bool wide;
@@ -305,6 +313,14 @@ class _NoteList extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: ActionChip(
+                  avatar: const Icon(Icons.folder_open, size: 16),
+                  label: const Text('Mappák…'),
+                  onPressed: onFolders,
+                ),
+              ),
               if (folder != null || tag != null)
                 Padding(
                   padding: const EdgeInsets.only(right: 6),
@@ -572,18 +588,18 @@ class _NoteEditorState extends State<NoteEditor> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Jegyzet törlése'),
-        content: Text('Biztosan törlöd: ${widget.note.name}?'),
+        title: const Text('Jegyzet a kukába'),
+        content: Text('A(z) „${widget.note.name}” 30 napig a kukában marad, onnan visszaállítható.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Mégse')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Törlés')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Kukába')),
         ],
       ),
     );
     if (ok != true) return;
     _debounce?.cancel();
     _dirty = false;
-    await state.deleteItem(widget.note.id);
+    await state.trashItem(widget.note);
     state.selectNote(null);
     if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
   }
@@ -772,7 +788,7 @@ class _NoteEditorState extends State<NoteEditor> {
           },
           itemBuilder: (_) => const [
             PopupMenuItem(value: 'copy', child: Text('Másolás markdownként')),
-            PopupMenuItem(value: 'delete', child: Text('Törlés')),
+            PopupMenuItem(value: 'delete', child: Text('Kukába')),
           ],
         ),
       ]),
@@ -791,6 +807,18 @@ class _NoteEditorState extends State<NoteEditor> {
             style: Theme.of(context).textTheme.bodySmall,
             decoration: const InputDecoration(hintText: 'Mappa (pl. Munka/2026)', isDense: true, border: InputBorder.none),
           ),
+        ),
+        IconButton(
+          tooltip: 'Mappa kiválasztása',
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.drive_file_move_outline, size: 18),
+          onPressed: () async {
+            final picked = await pickFolder(context, state, 'note', _folder.text);
+            if (picked != null) {
+              _folder.text = picked;
+              _touch();
+            }
+          },
         ),
         const Spacer(),
         Flexible(child: Text(_status, style: TextStyle(color: p.muted, fontSize: 12), overflow: TextOverflow.ellipsis)),
