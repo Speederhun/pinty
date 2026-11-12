@@ -8,7 +8,6 @@ import 'package:flutter_highlight/flutter_highlight.dart';
 import 'package:flutter_highlight/themes/atom-one-dark.dart';
 import 'package:flutter_highlight/themes/atom-one-light.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:highlight/highlight.dart' as hl;
 import 'package:markdown/markdown.dart' as md;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -397,6 +396,11 @@ class _NoteList extends StatelessWidget {
       body.replaceAll(RegExp(r'[#>*_`\[\]-]+'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
 }
 
+const _knownLangs = {
+  'bash', 'python', 'javascript', 'typescript', 'json', 'go', 'sql', 'yaml', 'xml', 'css', 'powershell',
+  'cpp', 'java', 'rust', 'dart', 'markdown', 'ini', 'dockerfile', 'nginx', 'php', 'ruby', 'kotlin', 'swift',
+};
+
 const _langAlias = {
   'sh': 'bash',
   'shell': 'bash',
@@ -426,7 +430,7 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     final base = dark ? atomOneDarkTheme : atomOneLightTheme;
     final theme = {...base, 'root': TextStyle(color: base['root']?.color, backgroundColor: Colors.transparent)};
     const mono = TextStyle(fontFamily: 'monospace', fontSize: 13, height: 1.4);
-    final highlighted = lang.isNotEmpty && hl.highlight.languages.containsKey(lang);
+    final highlighted = lang.isNotEmpty && _knownLangs.contains(lang);
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
