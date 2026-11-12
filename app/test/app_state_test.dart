@@ -113,7 +113,7 @@ void main() {
     final server = FakeServer();
     final s = await _app(server);
     await s.saveItem(VaultItem(id: 'a', name: 'GitHub', password: 'titok'));
-    await s.sync();
+    await s.repo.sync();
 
     expect(await s.changeMasterPassword('rossz-regi-jelszo-xx', 'uj-nagyon-hosszu-jelszo'), isFalse);
     expect(await s.changeMasterPassword(_pw, 'uj-nagyon-hosszu-jelszo'), isTrue);
@@ -137,7 +137,7 @@ void main() {
     final server = FakeServer();
     final s = await _app(server);
     await s.saveItem(VaultItem(id: 'a', name: 'Bank', password: 'titok'));
-    await s.sync();
+    await s.repo.sync();
     expect(await s.recoveryEnabled(), isFalse);
     final key = await s.createRecoveryKey();
     expect(key, isNotNull);
