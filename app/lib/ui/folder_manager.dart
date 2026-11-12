@@ -56,6 +56,10 @@ Future<String?> pickFolder(BuildContext context, AppState state, String scope, S
   );
 }
 
+/// Név bekérése (mappa létrehozásához / átnevezéséhez).
+Future<String?> askFolderName(BuildContext context, String title, String initial, {String? hint}) =>
+    _askName(context, title, initial, hint: hint);
+
 Future<String?> _askName(BuildContext context, String title, String initial, {String? hint}) {
   final c = TextEditingController(text: initial);
   return showDialog<String>(

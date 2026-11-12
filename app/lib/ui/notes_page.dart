@@ -215,6 +215,7 @@ class _NotesPageState extends State<NotesPage> {
         onTag: (t) => setState(() => _tag = t),
         onOpen: _open,
         onNew: () => _create(),
+        onNewIn: (f) => _create(folder: f),
         onDaily: _daily,
         onTemplate: _fromTemplate,
         onImport: _import,
@@ -396,6 +397,7 @@ class _NoteList extends StatelessWidget {
     required this.onTag,
     required this.onOpen,
     required this.onNew,
+    required this.onNewIn,
     required this.onDaily,
     required this.onTemplate,
     required this.onImport,
@@ -412,7 +414,7 @@ class _NoteList extends StatelessWidget {
   final String? folder, tag;
   final VoidCallback onSearch, onNew, onDaily, onTemplate, onImport, onExport, onQuickOpen, onGraph, onFolders;
   final void Function(String?) onFolder, onTag;
-  final void Function(String) onOpen;
+  final void Function(String) onOpen, onNewIn;
   final bool wide;
 
   @override
@@ -525,7 +527,7 @@ class _NoteList extends StatelessWidget {
           ),
         ),
       Expanded(
-        child: notes.isEmpty
+        child: (notes.isEmpty && !(search.text.trim().isEmpty && folder == null && tag == null && state.foldersFor('note').isNotEmpty))
             ? Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
@@ -535,30 +537,142 @@ class _NoteList extends StatelessWidget {
                   ),
                 ),
               )
-            : ListView.builder(
-                padding: const EdgeInsets.all(8),
-                itemCount: notes.length,
-                itemBuilder: (context, i) {
-                  final n = notes[i];
-                  return ListTile(
-                    dense: true,
-                    selected: wide && state.selectedNoteId == n.id,
-                    title: Text(n.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    subtitle: Text(
-                      [if (n.folder.isNotEmpty) n.folder, _preview(n.notes)].where((s) => s.isNotEmpty).join(' · '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onTap: () => onOpen(n.id),
-                  );
-                },
-              ),
+            : (search.text.trim().isEmpty && folder == null && tag == null)
+                ? _NoteTree(state: state, onOpen: onOpen, onNewIn: onNewIn, wide: wide)
+                : ListView.builder(
+                    padding: const EdgeInsets.all(8),
+                    itemCount: notes.length,
+                    itemBuilder: (context, i) {
+                      final n = notes[i];
+                      return ListTile(
+                        dense: true,
+                        selected: wide && state.selectedNoteId == n.id,
+                        title: Text(n.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(
+                          [if (n.folder.isNotEmpty) n.folder, _preview(n.notes)].where((s) => s.isNotEmpty).join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onTap: () => onOpen(n.id),
+                      );
+                    },
+                  ),
       ),
     ]);
   }
 
   static String _preview(String body) =>
       body.replaceAll(RegExp(r'[#>*_`\[\]-]+'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+}
+
+/// Mappafa: lenyitható mappák, bennük a jegyzetek (mint az Obsidian fájlböngészője).
+class _NoteTree extends StatefulWidget {
+  const _NoteTree({required this.state, required this.onOpen, required this.onNewIn, required this.wide});
+  final AppState state;
+  final void Function(String) onOpen, onNewIn;
+  final bool wide;
+
+  @override
+  State<_NoteTree> createState() => _NoteTreeState();
+}
+
+class _NoteTreeState extends State<_NoteTree> {
+  final Set<String> _open = {};
+  String? _lastSel;
+
+  AppState get state => widget.state;
+
+  static String _parent(String path) {
+    final i = path.lastIndexOf('/');
+    return i < 0 ? '' : path.substring(0, i);
+  }
+
+  int _count(String f) => state.noteIndex.notes.where((n) => n.folder == f || n.folder.startsWith('$f/')).length;
+
+  List<Widget> _level(String parent, int depth) {
+    final out = <Widget>[];
+    final folders = state.foldersFor('note').where((f) => _parent(f) == parent).toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    for (final f in folders) {
+      final open = _open.contains(f);
+      out.add(ListTile(
+        dense: true,
+        contentPadding: EdgeInsets.only(left: 8.0 + 16.0 * depth, right: 0),
+        leading: Icon(open ? Icons.folder_open : Icons.folder_outlined, size: 20),
+        title: Text(f.split('/').last, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Text('${_count(f)} jegyzet'),
+        onTap: () => setState(() => open ? _open.remove(f) : _open.add(f)),
+        trailing: PopupMenuButton<String>(
+          tooltip: 'Mappa műveletei',
+          onSelected: (v) async {
+            switch (v) {
+              case 'note':
+                setState(() => _open.add(f));
+                widget.onNewIn(f);
+              case 'sub':
+                final n = await askFolderName(context, 'Új almappa a(z) „$f” alatt', '', hint: 'Mappa neve');
+                if (n != null && n.trim().isNotEmpty) {
+                  await state.createFolder('note', '$f/${AppState.cleanPath(n)}');
+                  setState(() => _open.add(f));
+                }
+              case 'rename':
+                final n = await askFolderName(context, 'Mappa átnevezése / áthelyezése', f);
+                if (n != null && n.trim().isNotEmpty) await state.renameFolder('note', f, n);
+              case 'delete':
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: Text('„$f” törlése'),
+                    content: const Text('A mappa megszűnik, a benne lévő jegyzetek a szülő-mappába kerülnek. Semmi sem törlődik.'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Mégse')),
+                      FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Mappa törlése')),
+                    ],
+                  ),
+                );
+                if (ok == true) await state.deleteFolder('note', f);
+            }
+          },
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 'note', child: Text('Új jegyzet ebben')),
+            PopupMenuItem(value: 'sub', child: Text('Új almappa')),
+            PopupMenuItem(value: 'rename', child: Text('Átnevezés / áthelyezés')),
+            PopupMenuItem(value: 'delete', child: Text('Törlés')),
+          ],
+        ),
+      ));
+      if (open) out.addAll(_level(f, depth + 1));
+    }
+    final notes = state.noteIndex.notes.where((n) => n.folder == parent).toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    for (final n in notes) {
+      out.add(ListTile(
+        dense: true,
+        contentPadding: EdgeInsets.only(left: 8.0 + 16.0 * depth + (depth > 0 || parent.isNotEmpty ? 0 : 0), right: 8),
+        leading: const Icon(Icons.description_outlined, size: 18),
+        selected: widget.wide && state.selectedNoteId == n.id,
+        title: Text(n.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+        onTap: () => widget.onOpen(n.id),
+      ));
+    }
+    return out;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sel = state.selectedNote;
+    if (sel != null && sel.id != _lastSel && sel.folder.isNotEmpty) {
+      // a kiválasztott jegyzet mappái nyitva
+      final parts = sel.folder.split('/');
+      for (var i = 1; i <= parts.length; i++) {
+        _open.add(parts.take(i).join('/'));
+      }
+    }
+    _lastSel = sel?.id;
+    final children = _level('', 0);
+    if (children.isEmpty) return const Center(child: Text('Még nincs jegyzet.'));
+    return ListView(padding: const EdgeInsets.all(8), children: children);
+  }
 }
 
 const _knownLangs = {
